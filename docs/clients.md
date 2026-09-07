@@ -71,9 +71,11 @@ Restart and inspect `/mcp` or `gemini mcp list`. Remove with `gemini mcp remove 
 
 Open **MCP Servers → Manage MCP Servers → View raw config** in the agent panel and merge [stdio.json](../examples/client-configs/stdio.json). Use an absolute executable path if needed, then reload and inspect the manager. Remove the entry or set `disabled: true` to disconnect.
 
-The installed CLI reports `1.107.0`, commit `135ccf460c67c4b900dc10aa71c978f27d78601c`, x64. Its bundled schema accepts `command`, `args`, `env`, `serverUrl`, `headers`, `disabled` and `disabledTools`. Current online documentation includes newer paths and fields rejected by that installed schema. Use **View raw config** to locate the file; do not apply the Gemini CLI path by analogy.
+The tested IDE is `1.20.6`; its CLI/base reports `1.107.0`, commit `135ccf460c67c4b900dc10aa71c978f27d78601c`, x64. Its bundled schema accepts `command`, `args`, `env`, `serverUrl`, `headers`, `disabled` and `disabledTools`. Current online documentation includes newer paths and fields rejected by that installed schema. Use **View raw config** to locate the file; do not apply the Gemini CLI path by analogy.
 
-Safe HTTP-header environment expansion was not established for this version. Use stdio with a token file. A schema check is not an Antigravity session or tool call. [Official Antigravity MCP documentation](https://antigravity.google/docs/mcp).
+Safe HTTP-header environment expansion was not established for this version. Use stdio with a token file. The real stdio report workflow is recorded in the validation table below. [Official Antigravity MCP documentation](https://antigravity.google/docs/mcp).
+
+If discovery succeeds but lookups return `unavailable`, check the MCP process's HTTPS configuration. In the tested Linux environment, Antigravity supplied an incomplete `SSL_CERT_FILE` bundle. Setting `SSL_CERT_FILE` to `/etc/ssl/certs/ca-certificates.crt` in this server's `env` and reloading resolved certificate verification errors. Use the trusted CA bundle appropriate to your machine; this Linux path is not portable. TLS verification remained enabled and proxy settings were preserved.
 
 ## Qwen Code
 
@@ -145,10 +147,9 @@ Use the connection page to revoke the credential when required. Only HTTP 204 co
 
 Evidence reviewed through 2026-09-07 (UTC). Configuration parsing, MCP discovery, an actual tool call and a model-assisted workflow are separate observations. The generic Python SDK test is not evidence of a Claude or Gemini model workflow.
 
-Completed client checks below were performed during private development.
-References to earlier versions describe that history, not installation from this
-public repository. Each public release requires its own verified CI run and
-checksums.
+Client checks identify the artifact and date tested. Checks for earlier
+versions describe private development, not installation from this public
+repository. Each public release requires its own verified CI run and checksums.
 
 | Client | Version | Transport | Configuration | Discovery / tool calls | Model workflow |
 |---|---|---|---|---|---|
@@ -160,7 +161,7 @@ checksums.
 | Gemini CLI | 0.38.1 | stdio | Add command executed and saved configuration inspected | Health check connected in a trusted temporary folder using synthetic credential; tool calls pending | Pending |
 | Claude Code | 2.1.257 | HTTP | Documented header expansion | Pending | Pending |
 | Gemini CLI | 0.38.1 | HTTP | Installed pure resolver checked; client loading/network untested | Pending | Pending |
-| Antigravity IDE | CLI 1.107.0 / commit 135ccf4 | stdio | Installed schema checked | Pending | Pending |
+| Antigravity IDE | IDE 1.20.6 / CLI 1.107.0 / commit 135ccf4 | stdio | Public v0.7.0 wheel; token file and trusted system CA bundle | Five tools discovered; four report calls once each returned found; protocol 2025-06-18 | Validated report lookups; Gemini 3.6 Flash (High) shown in the UI |
 | Qwen Code | Not installed; source 4248117 | stdio / proposed HTTP | Documentation/types/resolver inspected; schema limited | Pending | Pending |
 | Kimi Code CLI | Not installed; source 1.50.0 / 86f1364 | stdio | Documentation/loader inspected | Pending | Pending |
 | OpenCode V1 | Not installed | stdio / proposed HTTP | Public schema checked | Pending | Pending |
@@ -169,7 +170,11 @@ checksums.
 | ChatGPT / Claude hosted | Account/interface untested | Individual OAuth pending | Requirements reviewed | Pending | Pending |
 | Python MCP SDK | 2.1.1 | stdio | Executable and token file exercised | Four tools discovered and called against synthetic HTTP backend | No model used |
 
-Claude and Gemini checks used isolated client configuration directories and a synthetic token file; the VTAI base URL pointed to loopback. They did not query production or invoke a model. A listed example or handshake alone is not a claim of full host support. The service and workflow table below records the observed scope; no external catalog publication is claimed.
+Earlier Claude and Gemini configuration checks used isolated client configuration directories and a synthetic token file; the VTAI base URL pointed to loopback. They did not query production or invoke a model. A listed example or handshake alone is not a claim of full host support. The service and workflow table below records the observed scope; no external catalog publication is claimed.
+
+The Antigravity production run on 2026-09-07, 10:12:15–10:12:18 UTC, used the public v0.7.0 wheel (SHA256 `3e17703f2bdabbcc8db9708dee31ff7a89465365432878797385d04c419574c5`) and a dedicated test credential. A transparent stdio recorder captured the native client's five-tool discovery and exactly one call each for the empty-file hash, `https://example.com/`, `example.com` and `1.1.1.1`. All four returned `found`, with source, analysis date and coverage of 75/91/90/90 engine entries. Coverage includes incomplete outcomes and does not establish safety. The first four-call attempt returned `unavailable` because of the environment's certificate configuration; it remains recorded separately from the successful repeat after the CA adjustment. The UI showed Gemini 3.6 Flash (High); the provider's internal model identifier was not captured. The final answer preserved the report metadata and safety limitation. The temporary client configuration was removed and the test credential revoked after the run. There was no `get_analysis` call or submission. This evidence covers stdio report lookups, not Antigravity HTTP or analysis workflows.
+
+Additional real-client attempts on 2026-09-07 did not establish Gemini CLI or Claude Code model workflows: Vertex authentication could not load ADC in the test environment, and Claude Code's existing direct login was inactive. Provider authentication is separate from the VTAI credential. Their earlier configuration/discovery levels remain unchanged; these environment failures do not establish MCP incompatibility. See [Gemini authentication](https://geminicli.com/docs/get-started/authentication/) and [Claude Code Google Cloud setup](https://code.claude.com/docs/en/google-vertex-ai).
 
 The earlier remote Codex fixture used a loopback VTAI deployment with synthetic identity storage and VirusTotal responses. The client did not launch vt-mcp. All four calls completed and the server closed its resources. Its host variable was named `VTAI_TOKEN`; the example above uses `VTAI_MCP_TOKEN` with the same header mapping. This fixture evidence remains separate from the production observation below and release installation.
 
