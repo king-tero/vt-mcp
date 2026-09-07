@@ -6,7 +6,7 @@ These files are included in the `v0.7.0` source distribution and the [versioned 
 
 | File | Client / destination | Configuration evidence; current scope in the client matrix |
 |---|---|---|
-| [stdio.json](stdio.json) | Claude Code project `.mcp.json`; Gemini/Qwen `settings.json`; Antigravity IDE's **View raw config**; Antigravity CLI `~/.gemini/config/mcp_config.json`; Kimi `~/.kimi/mcp.json` | Shared field layout; Antigravity IDE and CLI stdio report workflows validated separately; Qwen/Kimi binaries untested |
+| [stdio.json](stdio.json) | Claude Code project `.mcp.json` or file passed to `--mcp-config`; Gemini/Qwen `settings.json`; Antigravity IDE's **View raw config**; Antigravity CLI `~/.gemini/config/mcp_config.json`; Kimi `~/.kimi/mcp.json` | Shared field layout; Claude Code, Antigravity IDE and CLI stdio report workflows validated separately; Qwen/Kimi binaries untested |
 | [codex-stdio.toml](codex-stdio.toml) | Codex `~/.codex/config.toml` | Official schema checked; CLI 0.153.4 syntax checked |
 | [codex-http.toml](codex-http.toml) | Codex `~/.codex/config.toml` | Schema and CLI 0.153.4 checked; `env_http_headers` exercised against a local fixture and the public production endpoint |
 | [claude-http.json](claude-http.json) | Claude Code project `.mcp.json` | Documented environment expansion; HTTP calls pending |
