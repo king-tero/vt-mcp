@@ -47,6 +47,8 @@ Restart Codex and use `/mcp` to inspect the integration. Remove it with `codex m
 
 ## Claude Code
 
+Sign in with your existing Claude subscription using `claude auth login --claudeai` (or `/login` inside Claude Code). Vertex and ADC are optional cloud-provider choices, not vt-mcp requirements. This model-provider login is separate from your VTAI credential. [Claude Code authentication](https://code.claude.com/docs/en/authentication).
+
 ```bash
 claude mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" \
   --scope user --transport stdio virustotal -- vt-mcp
@@ -57,6 +59,8 @@ For HTTP, merge [claude-http.json](../examples/client-configs/claude-http.json) 
 Inspect `/mcp` or `claude mcp list`. Remove the stdio user entry with `claude mcp remove --scope user virustotal`. Remove the HTTP project entry from `.mcp.json` or use `claude mcp remove --scope project virustotal`, then restart/reload. The scope/transport options terminate the variadic `--env` option in the command above. CLI 2.1.257 help was checked on 2026-09-06. This setup is separate from a claude.ai connector. [Official Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
 
 ## Gemini CLI
+
+For native Google-account authentication, run `gemini`, open `/auth` and select **Sign in with Google**, then complete the browser flow with an eligible account. Gemini API-key authentication is another option; Vertex is optional. Confirm model access separately from the VTAI credential and MCP connection. [Gemini authentication](https://geminicli.com/docs/get-started/authentication/).
 
 ```bash
 gemini mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" \
