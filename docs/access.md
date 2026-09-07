@@ -76,6 +76,8 @@ Remote MCP uses `https://ai.virustotal.com/mcp`, not the REST URL ending `/api/v
 
 Use the host's supported environment-header reference from the [configuration fragments](../examples/client-configs/README.md). `VTAI_MCP_TOKEN` is an arbitrary host-side variable name, chosen to avoid conflict with a stdio server's `VTAI_TOKEN_FILE`.
 
+For Antigravity CLI (`agy`) 1.1.27, use the [stdio token-file setup](clients.md#antigravity-cli-agy); tested HTTP header variables were sent literally. Claude Code and Codex support the remote configurations described here.
+
 In a human-controlled Bash terminal, load the file without printing its value, then launch the client:
 
 ```bash
@@ -85,11 +87,11 @@ In a human-controlled Bash terminal, load the file without printing its value, t
   IFS= read -r VTAI_MCP_TOKEN < "$HOME/.config/vt-mcp/token" || test -n "$VTAI_MCP_TOKEN" || exit 1
   test -n "$VTAI_MCP_TOKEN" || exit 1
   export VTAI_MCP_TOKEN
-  exec codex
+  exec claude
 )
 ```
 
-Replace `codex` with the chosen client. A nonempty first line works with or without a trailing newline; a missing file or empty first line prevents launch. The subshell does not leave a new export in the parent shell. The variable lasts for that client process, and a previously opened GUI will not inherit it. Do not use a header flag containing an expanded credential: it can put the secret in process arguments and saved configuration. File and environment storage avoid normal disclosure in prompts; they do not isolate credentials from software with permission to read them.
+Use `exec codex` instead for Codex, with its matching header configuration. A nonempty first line works with or without a trailing newline; a missing file or empty first line prevents launch. The subshell does not leave a new export in the parent shell. The variable lasts for that client process, and a previously opened GUI will not inherit it. Do not use a header flag containing an expanded credential: it can put the secret in process arguments and saved configuration. File and environment storage avoid normal disclosure in prompts; they do not isolate credentials from software with permission to read them.
 
 ## Diagnose the right layer
 

@@ -6,10 +6,11 @@ These files are included in the `v0.7.0` source distribution and the [versioned 
 
 | File | Client / destination | Configuration evidence; current scope in the client matrix |
 |---|---|---|
-| [stdio.json](stdio.json) | Claude Code project `.mcp.json` or file passed to `--mcp-config`; Gemini/Qwen `settings.json`; Antigravity IDE's **View raw config**; Antigravity CLI `~/.gemini/config/mcp_config.json`; Kimi `~/.kimi/mcp.json` | Shared field layout; Claude Code, Antigravity IDE and CLI stdio report workflows validated separately; Qwen/Kimi binaries untested |
-| [codex-stdio.toml](codex-stdio.toml) | Codex `~/.codex/config.toml` | Official schema checked; CLI 0.153.4 syntax checked |
-| [codex-http.toml](codex-http.toml) | Codex `~/.codex/config.toml` | Schema and CLI 0.153.4 checked; `env_http_headers` exercised against a local fixture and the public production endpoint |
-| [claude-http.json](claude-http.json) | Claude Code project `.mcp.json` | Documented environment expansion; HTTP calls pending |
+| [stdio.json](stdio.json) | Antigravity CLI (`agy`) `~/.gemini/config/mcp_config.json`; Claude Code project `.mcp.json` or file passed to `--mcp-config` | All five tools validated separately in agy 1.1.27 and Claude Code 2.1.263 |
+| [claude-http.json](claude-http.json) | Claude Code project `.mcp.json` | Header expansion and all five tools validated in production with 2.1.263 |
+| [codex-stdio.toml](codex-stdio.toml) | Codex `~/.codex/config.toml` | All five tools validated with CLI 0.153.4 and the public v0.7.0 wheel |
+| [codex-http.toml](codex-http.toml) | Codex `~/.codex/config.toml` | `env_http_headers` and all five tools validated at the public production endpoint |
+| [stdio.json](stdio.json) | Gemini/Qwen `settings.json`; Antigravity IDE's **View raw config**; Kimi `~/.kimi/mcp.json` | Shared field layout; Antigravity IDE stdio report workflow validated separately; Qwen/Kimi binaries untested |
 | [gemini-qwen-http.json](gemini-qwen-http.json) | Gemini `~/.gemini/settings.json`; Qwen `~/.qwen/settings.json` | Gemini 0.38.1 resolver checked; Qwen source inspected; HTTP calls pending |
 | [opencode-v1-stdio.json](opencode-v1-stdio.json) | OpenCode V1 `~/.config/opencode/opencode.json` | Public schema checked; client binary untested |
 | [opencode-v1-http.json](opencode-v1-http.json) | OpenCode V1 `~/.config/opencode/opencode.json` | Public schema checked; client binary untested |
@@ -18,8 +19,8 @@ For stdio, install the verified wheel first. `vt-mcp` must be on the PATH used b
 
 For HTTP, no vt-mcp or Python installation is required. VTAI authenticates only the **`x-apikey`** header. The variable `VTAI_MCP_TOKEN` contains the credential and is expanded by the host; it is not an OAuth access flow. Never replace the reference in these files with the credential itself. Load the variable outside chat using the [access guide](../../docs/access.md#remote-client-environment). Do not substitute a client's generic Bearer-token option: VTAI does not authenticate that header.
 
-Codex has completed the four report queries and a selected-analysis read in a separate session at the configured production URL; see the [client matrix](../../docs/clients.md#validation-levels). That does not validate other hosts or a different installed artifact; see the [service and workflow table](../../docs/clients.md#service-and-workflow-validation). For an authorized test deployment, replace the URL with that deployment's exact `/mcp` URL and prefix. The REST base ending `/api/v3` is not the MCP endpoint.
+Antigravity CLI (`agy`), Claude Code and Codex have completed the five tools at the transport levels above. See the [native-client evidence](../../docs/client-validation-2026-09-07.md) for the same selected analysis, agy's auxiliary output-file read and protocol limits. This does not validate other hosts or a different installed artifact. For an authorized test deployment, replace the URL with that deployment's exact `/mcp` URL and prefix. The REST base ending `/api/v3` is not the MCP endpoint.
 
 OpenCode has separate [V1](https://opencode.ai/docs/mcp-servers/) and [V2](https://opencode.ai/v2/docs/mcp-servers) layouts. On 2026-09-06, the [public schema](https://opencode.ai/config.json) accepted V1 `mcp.<name>` but rejected the documented V2 `mcp.servers.<name>`. These fragments target V1 only. Pin and test a V2 binary before translating them; changing the name of this file does not establish V2 support.
 
-No HTTP fragment is provided for Antigravity or Kimi: their reviewed configurations accept headers, but safe environment expansion of those headers was not established for the versions inspected. Use the shared stdio fragment until that path is tested. No bridge package or provider-specific MCP server is needed.
+No HTTP fragment is provided for Antigravity or Kimi. agy 1.1.27 sent `$VAR`, `${VAR}` and `${env:VAR}` header references literally in a local discovery test. Safe header expansion remains unestablished for the reviewed Antigravity IDE and Kimi versions. Use the shared stdio fragment. No bridge package or provider-specific MCP server is needed.

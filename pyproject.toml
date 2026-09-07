@@ -49,6 +49,7 @@ addopts = "-q"
 source-include = [
     "docs/access.md",
     "docs/clients.md",
+    "docs/client-validation-2026-09-07.md",
     "docs/analysis.md",
     "docs/control.md",
     "docs/embedding.md",

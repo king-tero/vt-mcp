@@ -19,19 +19,17 @@ Version **0.7.0** adds a release gate for two explicitly public CI fixtures, ret
 
 Both routes use VTAI's rights and quotas. VTAI authenticates **`x-apikey`**, without a Bearer or OAuth login flow. Free access is neither anonymous nor unlimited; model-provider charges are separate.
 
-For Codex CLI HTTP, merge this into `~/.codex/config.toml`, preserving other settings and replacing any existing `virustotal` stdio entry:
+| Client | Setup guide |
+|---|---|
+| Antigravity CLI (`agy`) | [Local stdio](docs/clients.md#antigravity-cli-agy) |
+| Claude Code | [Client setup](docs/clients.md#claude-code) |
+| Codex CLI | [Remote HTTP](docs/clients.md#codex-cli--remote-http) or [local stdio](docs/clients.md#codex-cli--local-stdio) |
 
-```toml
-[mcp_servers.virustotal]
-url = "https://ai.virustotal.com/mcp"
+`VTAI_MCP_TOKEN` names an environment variable; it is not a token value. Use the [protected-file launch instructions](docs/access.md#remote-client-environment) to supply it for HTTP without putting the credential in arguments, prompts or configuration text.
 
-[mcp_servers.virustotal.env_http_headers]
-x-apikey = "VTAI_MCP_TOKEN"
-```
+Antigravity CLI (`agy`) 1.1.27 has completed all five tools through stdio. Claude Code 2.1.263 and Codex CLI 0.153.4 have each completed all five through both stdio and public HTTP. The [native-client validation](docs/client-validation-2026-09-07.md) records 25 MCP calls, the same selected analysis across sessions, and agy's auxiliary read of its generated analysis output. agy HTTP remains unvalidated: its tested header variables were sent literally. These observations are separate from guard behavior and release verification.
 
-`VTAI_MCP_TOKEN` names an environment variable; it is not a token value. Use the [protected-file launch instructions](docs/access.md#remote-client-environment) to supply it without putting the credential in arguments, prompts or configuration text. Codex CLI 0.153.4 has completed the four report queries and, in a separate public HTTP session, one `get_analysis` read of an already-submitted file, with gpt-6-astra / xhigh requested and no local vt-mcp process. The matrix keeps those separate observations and their limits distinct from other clients, guard behavior and release verification.
-
-[Client setup](docs/clients.md) also covers Claude Code, Antigravity CLI (`agy`) and IDE, remaining Gemini CLI authentication routes, Qwen, Kimi, OpenCode and applications using Z.ai or DeepSeek, with their actual validation levels. Claude Code, Antigravity CLI and Antigravity IDE have completed the four report queries through stdio in separate sessions. ChatGPT and Claude hosted connectors require separate authentication/account integration and are not provided by these settings. The [configuration fragments](examples/client-configs/README.md) reuse one MCP server across clients.
+[Client setup](docs/clients.md) also covers Antigravity IDE, remaining Gemini CLI authentication routes, Qwen, Kimi, OpenCode and applications using Z.ai or DeepSeek, with their actual validation levels. Antigravity IDE has completed the four report queries through stdio in a separate session. ChatGPT and Claude hosted connectors require separate authentication/account integration and are not provided by these settings. The [configuration fragments](examples/client-configs/README.md) reuse one MCP server across clients.
 
 ## Query existing intelligence
 
@@ -63,13 +61,9 @@ vt-mcp --version
 
 Require an `OK` for that wheel before installing; checking other files does not verify an absent wheel. The package is not published on PyPI. Use the linked release and verified filename rather than a similarly named package from another publisher.
 
-Keep `vt-mcp` on the client's PATH or configure its absolute path. For Codex CLI, after saving the VTAI token as described in the access guide:
+Keep `vt-mcp` on the client's PATH or configure its absolute path. After saving the VTAI token as described in the access guide, follow the setup for [Antigravity CLI (`agy`)](docs/clients.md#antigravity-cli-agy), [Claude Code](docs/clients.md#claude-code), or [Codex CLI stdio](docs/clients.md#codex-cli--local-stdio).
 
-```bash
-codex mcp add virustotal --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" -- vt-mcp
-```
-
-Restart Codex and inspect `/mcp`. Running `vt-mcp` without a subcommand starts stdio. The wheel does not modify client settings; the source distribution includes the consumer guides and examples. A [Python application example](examples/README.md) uses the same MCP server without a model account.
+Restart the selected client and inspect `/mcp`. Running `vt-mcp` without a subcommand starts stdio. The wheel does not modify client settings; the source distribution includes the consumer guides and examples. A [Python application example](examples/README.md) uses the same MCP server without a model account.
 
 ## Optional workflows
 
@@ -105,7 +99,7 @@ Tool failures set MCP `isError` with a sanitized structured error. A retry delay
 
 Use the [access diagnostics](docs/access.md#diagnose-the-right-layer) for authentication, quotas and service failures. For stdio startup problems, check PATH, token-file access and stderr. Missing configuration exits with status 2; stdout belongs to MCP.
 
-Remove the Codex connection with `codex mcp remove virustotal`, then restart. Removing client configuration does not revoke VTAI access. Follow [revocation](docs/access.md#revoke-access) to disable the credential across clients, REST and MCP; a request already admitted may finish.
+Remove the connection using the [Antigravity CLI (`agy`)](docs/clients.md#antigravity-cli-agy), [Claude Code](docs/clients.md#claude-code), or [Codex CLI](docs/clients.md#codex-cli--remote-http) instructions, then restart. Removing client configuration does not revoke VTAI access. Follow [revocation](docs/access.md#revoke-access) to disable the credential across clients, REST and MCP; a request already admitted may finish.
 
 ## Develop and embed
 
