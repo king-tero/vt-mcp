@@ -60,7 +60,7 @@ Inspect `/mcp` or `claude mcp list`. Remove the stdio user entry with `claude mc
 
 ## Gemini CLI
 
-For native Google-account authentication, run `gemini`, open `/auth` and select **Sign in with Google**, then complete the browser flow with an eligible account. Gemini API-key authentication is another option; Vertex is optional. Confirm model access separately from the VTAI credential and MCP connection. [Gemini authentication](https://geminicli.com/docs/get-started/authentication/).
+Google retired Gemini CLI access through **Sign in with Google** for Gemini Code Assist for individuals, Google AI Pro and Google AI Ultra on 2026-06-18. Use [Antigravity CLI (`agy`)](#antigravity-cli-agy) for those accounts. Standard and Enterprise are unaffected by that retirement; Gemini API-key authentication is a separate option. These remaining routes require their own account and model checks. [Official retirement notice](https://developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals), [Gemini authentication](https://geminicli.com/docs/get-started/authentication/).
 
 ```bash
 gemini mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" \
@@ -70,6 +70,35 @@ gemini mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" \
 For HTTP, merge [gemini-qwen-http.json](../examples/client-configs/gemini-qwen-http.json) into `~/.gemini/settings.json` and provide `VTAI_MCP_TOKEN` when launching Gemini. `httpUrl` selects Streamable HTTP; `url` denotes older SSE.
 
 Restart and inspect `/mcp` or `gemini mcp list`. Remove with `gemini mcp remove --scope user virustotal`. Workspace trust can affect connection. Explicitly declare the stdio `env` entry: Gemini filters inherited sensitive names, including TOKEN. CLI 0.38.1 help and its installed environment resolver were checked on 2026-09-06; that is not an HTTP tool-call test. [Official Gemini MCP documentation](https://geminicli.com/docs/tools/mcp-server/).
+
+## Antigravity CLI (`agy`)
+
+Use your native Antigravity login, then install the verified vt-mcp wheel and configure its credential-file path:
+
+```bash
+agy mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" virustotal vt-mcp
+```
+
+Flags must precede the server name. Use an absolute executable path if needed. CLI 1.1.27 saved this entry in `~/.gemini/config/mcp_config.json`; its fields match [stdio.json](../examples/client-configs/stdio.json). Restart `agy` and inspect `/mcp`. Remove it with `agy mcp remove virustotal`. The native model login is separate from VTAI access; this setup does not require Vertex or ADC. [Official MCP documentation](https://antigravity.google/docs/cli/mcp/).
+
+Interactive sessions can ask permission for each tool. For unattended report queries, merge these specific rules into `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`, preserving existing settings:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp(virustotal/get_file_report)",
+      "mcp(virustotal/get_url_report)",
+      "mcp(virustotal/get_domain_report)",
+      "mcp(virustotal/get_ip_report)"
+    ]
+  }
+}
+```
+
+Existing deny or ask rules take precedence over allow rules. Select a model available to your account with `agy models`; `agy -p 'Query the existing VirusTotal report for example.com and show its source, analysis date and coverage.'` runs a single prompt. A successful process exit alone does not prove that a tool ran: check the returned report or `--output-format stream-json` events. [Permissions](https://antigravity.google/docs/cli/permissions/), [headless execution](https://antigravity.google/docs/cli/headless/).
+
+CLI 1.1.27 completed the four production report lookups through stdio with its native login, as recorded below. HTTP and analysis workflows remain untested for this client. Safe header environment expansion was not established, so use the token-file stdio setup.
 
 ## Antigravity IDE
 
@@ -166,6 +195,7 @@ repository. Each public release requires its own verified CI run and checksums.
 | Claude Code | 2.1.257 | HTTP | Documented header expansion | Pending | Pending |
 | Gemini CLI | 0.38.1 | HTTP | Installed pure resolver checked; client loading/network untested | Pending | Pending |
 | Antigravity IDE | IDE 1.20.6 / CLI 1.107.0 / commit 135ccf4 | stdio | Public v0.7.0 wheel; token file and trusted system CA bundle | Five tools discovered; four report calls once each returned found; protocol 2025-06-18 | Validated report lookups; Gemini 3.6 Flash (High) shown in the UI |
+| Antigravity CLI (`agy`) | 1.1.27 | stdio | Public v0.7.0 wheel; token file; native login and four specific MCP permissions | Five tools discovered; four report calls once each returned found; wire version not captured | Validated report lookups; gemini-3.8-flash-high selected and reported in the client init event |
 | Qwen Code | Not installed; source 4248117 | stdio / proposed HTTP | Documentation/types/resolver inspected; schema limited | Pending | Pending |
 | Kimi Code CLI | Not installed; source 1.50.0 / 86f1364 | stdio | Documentation/loader inspected | Pending | Pending |
 | OpenCode V1 | Not installed | stdio / proposed HTTP | Public schema checked | Pending | Pending |
@@ -178,7 +208,9 @@ Earlier Claude and Gemini configuration checks used isolated client configuratio
 
 The Antigravity production run on 2026-09-07, 10:12:15–10:12:18 UTC, used the public v0.7.0 wheel (SHA256 `3e17703f2bdabbcc8db9708dee31ff7a89465365432878797385d04c419574c5`) and a dedicated test credential. A transparent stdio recorder captured the native client's five-tool discovery and exactly one call each for the empty-file hash, `https://example.com/`, `example.com` and `1.1.1.1`. All four returned `found`, with source, analysis date and coverage of 75/91/90/90 engine entries. Coverage includes incomplete outcomes and does not establish safety. The first four-call attempt returned `unavailable` because of the environment's certificate configuration; it remains recorded separately from the successful repeat after the CA adjustment. The UI showed Gemini 3.6 Flash (High); the provider's internal model identifier was not captured. The final answer preserved the report metadata and safety limitation. The temporary client configuration was removed and the test credential revoked after the run. There was no `get_analysis` call or submission. This evidence covers stdio report lookups, not Antigravity HTTP or analysis workflows.
 
-Additional real-client attempts on 2026-09-07 did not establish Gemini CLI or Claude Code model workflows: Vertex authentication could not load ADC in the test environment, and Claude Code's existing direct login was inactive. Provider authentication is separate from the VTAI credential. Their earlier configuration/discovery levels remain unchanged; these environment failures do not establish MCP incompatibility. See [Gemini authentication](https://geminicli.com/docs/get-started/authentication/) and [Claude Code Google Cloud setup](https://code.claude.com/docs/en/google-vertex-ai).
+Antigravity CLI 1.1.27 completed a separate production session on 2026-09-07, 18:11:13–18:11:43 UTC, using the same public v0.7.0 wheel. Client events and the transparent stdio trace show exactly four report calls, no other tool calls and four `found` results. The final response preserved source, analysis dates, engine coverage of 75/90/89/89 and category counts from `data.last_analysis_stats`, with the safety limitation. The model selection was `gemini-3.8-flash-high`; the provider's internal identifier and negotiated wire version were not captured. The native environment worked without a CA override. Temporary MCP configuration and permissions were removed, and the dedicated test credential was revoked. There was no analysis call or submission; this is separate evidence from the IDE run.
+
+Earlier real-client attempts on 2026-09-07 did not establish Gemini CLI or Claude Code model workflows: Vertex authentication could not load ADC, and Claude Code's native OAuth session had expired. The subsequent individual-account Gemini sign-in failure matches Google's retirement notice above; use `agy` for that account route. Historical Gemini configuration/discovery checks remain recorded at their tested versions. Claude Code's model workflow remains pending native reauthentication; Vertex is optional. These authentication results do not establish MCP incompatibility.
 
 The earlier remote Codex fixture used a loopback VTAI deployment with synthetic identity storage and VirusTotal responses. The client did not launch vt-mcp. All four calls completed and the server closed its resources. Its host variable was named `VTAI_TOKEN`; the example above uses `VTAI_MCP_TOKEN` with the same header mapping. This fixture evidence remains separate from the production observation below and release installation.
 

@@ -6,7 +6,7 @@ These files are included in the `v0.7.0` source distribution and the [versioned 
 
 | File | Client / destination | Configuration evidence; current scope in the client matrix |
 |---|---|---|
-| [stdio.json](stdio.json) | Claude Code project `.mcp.json`; Gemini/Qwen `settings.json`; Antigravity's **View raw config**; Kimi `~/.kimi/mcp.json` | Shared field layout; Antigravity installed schema checked; Qwen/Kimi binaries untested |
+| [stdio.json](stdio.json) | Claude Code project `.mcp.json`; Gemini/Qwen `settings.json`; Antigravity IDE's **View raw config**; Antigravity CLI `~/.gemini/config/mcp_config.json`; Kimi `~/.kimi/mcp.json` | Shared field layout; Antigravity IDE and CLI stdio report workflows validated separately; Qwen/Kimi binaries untested |
 | [codex-stdio.toml](codex-stdio.toml) | Codex `~/.codex/config.toml` | Official schema checked; CLI 0.153.4 syntax checked |
 | [codex-http.toml](codex-http.toml) | Codex `~/.codex/config.toml` | Schema and CLI 0.153.4 checked; `env_http_headers` exercised against a local fixture and the public production endpoint |
 | [claude-http.json](claude-http.json) | Claude Code project `.mcp.json` | Documented environment expansion; HTTP calls pending |
@@ -14,7 +14,7 @@ These files are included in the `v0.7.0` source distribution and the [versioned 
 | [opencode-v1-stdio.json](opencode-v1-stdio.json) | OpenCode V1 `~/.config/opencode/opencode.json` | Public schema checked; client binary untested |
 | [opencode-v1-http.json](opencode-v1-http.json) | OpenCode V1 `~/.config/opencode/opencode.json` | Public schema checked; client binary untested |
 
-For stdio, install the verified wheel first. `vt-mcp` must be on the PATH used by the host; otherwise replace it with the absolute path reported by `command -v vt-mcp`. The token path is an example. vt-mcp expands `~` itself; no shell expansion of arbitrary JSON values is assumed. Declare `VTAI_TOKEN_FILE` explicitly, especially in Gemini, which filters sensitive inherited environment names.
+For stdio, install the verified wheel first. `vt-mcp` must be on the PATH used by the host; otherwise replace it with the absolute path reported by `command -v vt-mcp`. The token path is an example. vt-mcp expands `~` itself; no shell expansion of arbitrary JSON values is assumed. Declare `VTAI_TOKEN_FILE` explicitly, especially in Gemini, which filters sensitive inherited environment names. Gemini CLI no longer serves Code Assist individual, Google AI Pro or Ultra accounts through Google login; use [Antigravity CLI (`agy`)](../../docs/clients.md#antigravity-cli-agy) for those accounts.
 
 For HTTP, no vt-mcp or Python installation is required. VTAI authenticates only the **`x-apikey`** header. The variable `VTAI_MCP_TOKEN` contains the credential and is expanded by the host; it is not an OAuth access flow. Never replace the reference in these files with the credential itself. Load the variable outside chat using the [access guide](../../docs/access.md#remote-client-environment). Do not substitute a client's generic Bearer-token option: VTAI does not authenticate that header.
 
