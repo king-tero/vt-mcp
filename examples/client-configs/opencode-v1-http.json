@@ -1,0 +1,12 @@
+{
+  "mcp": {
+    "virustotal": {
+      "type": "remote",
+      "url": "https://ai.virustotal.com/mcp",
+      "oauth": false,
+      "headers": {
+        "x-apikey": "{env:VTAI_MCP_TOKEN}"
+      }
+    }
+  }
+}

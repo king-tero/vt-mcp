@@ -1,0 +1,13 @@
+# Candidate fragment for Codex CLI 0.153.4, Linux only.
+# Replace both absolute paths and POLICY_SHA256 after reviewing the installed
+# artifact and policy. Merge into ONE active Codex configuration layer.
+# Review/trust this exact definition in /hooks; inspect again after restarting.
+# This fragment is not evidence that a hook is installed, trusted or active.
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = '/absolute/versioned/venv/bin/python -I -m vt_mcp guard hook --policy /absolute/private/guard.json --policy-sha256 POLICY_SHA256 || exit 2'
+timeout = 5
+statusMessage = "Preparing the supported Python execution check"

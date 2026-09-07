@@ -1,0 +1,272 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      manifest_sha256: ${{ steps.candidate.outputs.manifest_sha256 }}
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The coordinator creates this annotated tag only after independent QA of
+      # the downloaded candidate. A CI rerun cannot silently replace that build.
+      - name: Verify the tag, version, release notes, and QA candidate identity
+        id: candidate
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+
+          tag = os.environ['GITHUB_REF_NAME']
+          ref = os.environ['GITHUB_REF']
+          sha = os.environ['GITHUB_SHA']
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          if not re.fullmatch(r'v[0-9][A-Za-z0-9.!+-]*', tag) or tag != f'v{version}':
+              raise SystemExit('The tag must match the version in pyproject.toml')
+          if git('cat-file', '-t', ref) != 'tag':
+              raise SystemExit('Release requires an annotated tag recording the QA candidate')
+          if git('rev-parse', f'{ref}^{{commit}}') != sha:
+              raise SystemExit('The tag no longer points to the triggering commit')
+          notes = Path('docs/releases') / f'{tag}.md'
+          if not notes.is_file() or not notes.read_text().strip():
+              raise SystemExit(f'Missing or empty release notes: {notes}')
+          annotation = git('for-each-ref', '--format=%(contents)', ref)
+          run_ids = re.findall(r'^CI-Run: ([1-9][0-9]*)$', annotation, re.MULTILINE)
+          hashes = re.findall(r'^SHA256SUMS-SHA256: ([a-f0-9]{64})$', annotation, re.MULTILINE)
+          if len(run_ids) != 1 or len(hashes) != 1:
+              raise SystemExit('The tag must record one CI-Run and SHA256SUMS-SHA256 after QA')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'run_id={run_ids[0]}\nmanifest_sha256={hashes[0]}\n')
+          PY
+      - name: Download the candidate from its successful CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN: ${{ steps.candidate.outputs.run_id }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN" > "$RUNNER_TEMP/ci-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" > "$RUNNER_TEMP/ci-workflow.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((temporary / 'ci-run.json').read_text())
+          workflow = json.loads((temporary / 'ci-workflow.json').read_text())
+          expected = {
+              'head_sha': os.environ['GITHUB_SHA'],
+              'head_branch': 'main',
+              'event': 'push',
+              'status': 'completed',
+              'conclusion': 'success',
+              'workflow_id': workflow['id'],
+          }
+          if any(run.get(key) != value for key, value in expected.items()):
+              raise SystemExit('The selected run must be successful CI for this exact commit on main')
+          if run.get('head_repository', {}).get('full_name') != os.environ['GITHUB_REPOSITORY']:
+              raise SystemExit('The CI run must belong to this repository')
+          PY
+          gh run download "$CI_RUN" --repo "$GITHUB_REPOSITORY" --name "dist-$GITHUB_SHA" --dir dist
+      - name: Verify exact checksums and distribution metadata
+        env:
+          MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import re
+          import tarfile
+          import tomllib
+          import zipfile
+          from email.parser import BytesParser
+          from pathlib import Path
+
+          dist = Path('dist')
+          project = tomllib.loads(Path('pyproject.toml').read_text())['project']
+
+          def normalize(name):
+              return re.sub(r'[-_.]+', '-', name).lower()
+
+          manifest = (dist / 'SHA256SUMS').read_bytes()
+          if hashlib.sha256(manifest).hexdigest() != os.environ['MANIFEST_SHA256']:
+              raise SystemExit('The checksum manifest differs from the candidate recorded after QA')
+          entries = {}
+          for line in manifest.decode('ascii').splitlines():
+              match = re.fullmatch(r'([a-f0-9]{64})  ([A-Za-z0-9_.+-]+\.(?:whl|tar\.gz))', line)
+              if not match or match[2] in entries:
+                  raise SystemExit('Invalid or duplicate entry in SHA256SUMS')
+              entries[match[2]] = match[1]
+          if len(entries) != 2 or sum(name.endswith('.whl') for name in entries) != 1:
+              raise SystemExit('The candidate must contain exactly one wheel and one sdist')
+          if {path.name for path in dist.iterdir()} != {*entries, 'SHA256SUMS'}:
+              raise SystemExit('Unexpected or missing distribution files')
+          for name, checksum in entries.items():
+              path = dist / name
+              if path.is_symlink() or not path.is_file():
+                  raise SystemExit(f'Not a regular distribution file: {name}')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != checksum:
+                  raise SystemExit(f'Checksum mismatch: {name}')
+              if name.endswith('.whl'):
+                  with zipfile.ZipFile(path) as archive:
+                      members = [n for n in archive.namelist() if re.fullmatch(r'[^/]+\.dist-info/METADATA', n)]
+                      if len(members) != 1:
+                          raise SystemExit('The wheel must have one distribution metadata file')
+                      metadata = archive.read(members[0])
+              else:
+                  with tarfile.open(path, 'r:gz') as archive:
+                      members = [m for m in archive.getmembers() if re.fullmatch(r'[^/]+/PKG-INFO', m.name)]
+                      if len(members) != 1 or not members[0].isfile():
+                          raise SystemExit('The sdist must have one distribution metadata file')
+                      with archive.extractfile(members[0]) as stream:
+                          metadata = stream.read()
+              metadata = BytesParser().parsebytes(metadata)
+              if normalize(metadata.get('Name', '')) != normalize(project['name']):
+                  raise SystemExit(f'Package name mismatch: {name}')
+              if metadata.get('Version') != project['version']:
+                  raise SystemExit(f'Package version mismatch: {name}')
+          print('Verified the exact QA candidate and both distribution versions')
+          PY
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.10'
+          python-version: '3.12'
+          enable-cache: false
+      - name: Install the exact candidate before exposing the pilot credential
+        run: |
+          uv sync --locked --no-install-project
+          uv pip install --python .venv/bin/python --no-deps dist/*.whl
+          uv pip check --python .venv/bin/python
+          .venv/bin/vt-mcp --version
+          umask 077
+          mkdir -p "$RUNNER_TEMP/vtai-pilot-state" "$RUNNER_TEMP/vtai-pilot-evidence"
+          cp tests/fixtures/public/manifest.json "$RUNNER_TEMP/vtai-pilot-evidence/public-fixtures.json"
+      - name: Check explicitly public skill fixture version 1; standard sharing
+        id: fixture_v1
+        timeout-minutes: 7
+        env:
+          VTAI_TOKEN: ${{ secrets.VTAI_CI_TOKEN }}
+          VTAI_BASE_URL: https://ai.virustotal.com/api/v3
+          MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+        run: |
+          .venv/bin/python scripts/ci_vtai_fixture.py live --fixture-version 1.0.0 \
+            --wait 180 --state-dir "$RUNNER_TEMP/vtai-pilot-state" \
+            --evidence "$RUNNER_TEMP/vtai-pilot-evidence/v1.json"
+      - name: Check distinct public skill fixture version 2; standard sharing
+        id: fixture_v2
+        timeout-minutes: 7
+        env:
+          VTAI_TOKEN: ${{ secrets.VTAI_CI_TOKEN }}
+          VTAI_BASE_URL: https://ai.virustotal.com/api/v3
+          MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+        run: |
+          .venv/bin/python scripts/ci_vtai_fixture.py live --fixture-version 1.0.1 \
+            --wait 180 --state-dir "$RUNNER_TEMP/vtai-pilot-state" \
+            --evidence "$RUNNER_TEMP/vtai-pilot-evidence/v2.json"
+      - name: Record hashes of only the sanitized public-fixture evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          directory = Path(os.environ['RUNNER_TEMP']) / 'vtai-pilot-evidence'
+          entries = []
+          for name in ('public-fixtures.json', 'v1.json', 'v2.json'):
+              path = directory / name
+              if path.is_file() and not path.is_symlink():
+                  digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                  entries.append(f'{digest}  {name}\n')
+          if not entries:
+              raise SystemExit('No public-fixture evidence was produced; publication remains blocked.')
+          (directory / 'SHA256SUMS').write_text(''.join(entries))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('Public-fixture-only pilot evidence; this does not scan the private release.\n\n')
+              summary.write('Policy: `public-fixture-v1`, minimum completed engines: 1.\n\n')
+              summary.write('```text\n' + ''.join(entries) + '```\n')
+          PY
+      - name: Retain exact public-fixture evidence, including failed gates
+        id: pilot_evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-fixture-pilot-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/vtai-pilot-evidence/public-fixtures.json
+            ${{ runner.temp }}/vtai-pilot-evidence/v1.json
+            ${{ runner.temp }}/vtai-pilot-evidence/v2.json
+            ${{ runner.temp }}/vtai-pilot-evidence/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: false
+      - name: Publish a new GitHub release without rebuilding
+        if: success() && steps.fixture_v1.outcome == 'success' && steps.fixture_v2.outcome == 'success' && steps.pilot_evidence.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # `gh release create` fails if the tag already has a release. Never
+          # update an existing release or upload assets with --clobber.
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
+            dist/*.whl dist/*.tar.gz dist/SHA256SUMS
+
+  verify-installation:
+    name: Install the published release
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.10'
+          python-version: '3.12'
+          enable-cache: false
+      - name: Download from the release and compare with the QA candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SHA256: ${{ needs.release.outputs.manifest_sha256 }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --dir published --pattern '*.whl' --pattern '*.tar.gz' --pattern SHA256SUMS
+          test "$(sha256sum published/SHA256SUMS | cut -d ' ' -f 1)" = "$MANIFEST_SHA256"
+          (cd published && sha256sum --check SHA256SUMS)
+      - name: Install the published wheel and test its stdio entry point
+        run: |
+          uv venv .release-verify
+          uv pip install --python .release-verify/bin/python published/*.whl 'pytest>=9.1.1,<10'
+          .release-verify/bin/vt-mcp --version
+          .release-verify/bin/python -m pytest tests/test_stdio_e2e.py

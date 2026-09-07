@@ -1,0 +1,35 @@
+{
+  "status": "completed",
+  "analysis_id": "-opaque/analysis?literal%#\u00e9",
+  "analysis_status": "completed",
+  "sha256": "cdf61469f070b50910a2dcb123311956149ac9175f9a3cefbdb0a7a671532397",
+  "source": "VirusTotal via VTAI",
+  "retrieved_at": "2026-09-06T12:00:00+00:00",
+  "analysis_date": "2026-09-05T12:00:00+00:00",
+  "stats": {
+    "malicious": 1,
+    "suspicious": 0,
+    "harmless": 0,
+    "undetected": 0
+  },
+  "results": {
+    "Synthetic engine 0": {
+      "engine_name": "Synthetic engine 0",
+      "engine_version": null,
+      "engine_update": null,
+      "category": "malicious",
+      "result": null,
+      "method": null
+    }
+  },
+  "detections": [],
+  "coverage": {
+    "engines": 1,
+    "categories": [
+      "malicious"
+    ]
+  },
+  "report_url": "https://www.virustotal.com/gui/file/cdf61469f070b50910a2dcb123311956149ac9175f9a3cefbdb0a7a671532397",
+  "next_poll_after_seconds": null,
+  "pending_reason": null
+}

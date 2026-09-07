@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "kind": "agent-skill",
+  "name": "vtai-ci-public-fixture",
+  "mode": "standard",
+  "publicly_shareable": true,
+  "fixtures": [
+    {
+      "version": "1.0.0",
+      "path": "tests/fixtures/public/v1/vtai-ci-public-fixture/SKILL.md",
+      "size": 488,
+      "sha256": "cdf61469f070b50910a2dcb123311956149ac9175f9a3cefbdb0a7a671532397"
+    },
+    {
+      "version": "1.0.1",
+      "path": "tests/fixtures/public/v2/vtai-ci-public-fixture/SKILL.md",
+      "size": 488,
+      "sha256": "e21dd34159d74531c304ebfd58c177b1be9e073f0a6457fbfccdc9d1706aa657"
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+# Submit with consent and recover the selected analysis
+
+Version 0.7 includes an explicit submission CLI and selected-analysis reader.
+A compatible VTAI submission and analysis service is required; see
+[service validation](clients.md#service-and-workflow-validation) for observed
+workflows and their limits. Bare `vt-mcp` still starts the MCP server over stdio.
+
+This flow sends a local file only through an explicit CLI command. MCP adds one
+read-only tool, `get_analysis(analysis_id)`, for an analysis registered to the
+current VTAI account. MCP cannot read a local path, upload a sample, poll for five
+minutes or start an analysis. Existing report tools keep their previous behavior.
+
+## Authorize one copy
+
+Configure your existing VTAI credential using the [access guide](access.md). The
+CLI uses `VTAI_TOKEN_FILE` or `VTAI_TOKEN` and `VTAI_BASE_URL`; authentication is
+`x-apikey`. Do not put the credential in command arguments, prompts or receipts.
+
+```bash
+vt-mcp submit /absolute/path/authorized-file.txt --mode standard
+```
+
+The CLI opens one readable regular file, copies it into a private temporary file
+and calculates its SHA-256 and size before asking for confirmation. It accepts
+empty files and at most **32,000,000 bytes**. Directories, devices, FIFOs and final
+symlinks are rejected on the tested POSIX platform. It does not download a URL,
+walk directories, extract archives, accept archive passwords or add comments.
+Detected source modification during copying stops the operation. A later change
+to the original path does not change the copy authorized and sent.
+
+The interactive prompt displays the configured service, `standard` mode, SHA-256
+and byte count. Type **`SUBMIT`** to authorize that copy. Refusal, EOF or an
+interrupt before confirmation sends no sample bytes and starts no POST. The local
+source pathname is not sent in HTTP headers/body metadata or included in receipts.
+The copied file's bytes are, of course, disclosed by an authorized submission.
+
+Standard submission is **not confidential**. VirusTotal shares reports with its
+community; submitted content may be accessible to security partners and premium
+customers. Use this flow only for content you are authorized to disclose under
+those conditions. Cancelling the CLI does not withdraw an accepted file.
+[VirusTotal: how sharing works](https://docs.virustotal.com/docs/how-it-works).
+Private Scanning is a different service with different coverage; `--mode standard`
+does not enable it. [VirusTotal Private Scanning](https://docs.virustotal.com/docs/private-scanning).
+These sources were checked on 2026-09-06.
+
+Noninteractive use requires both explicit acceptance and the expected SHA-256:
+
+```bash
+vt-mcp submit /absolute/path/authorized-file.txt --mode standard \
+  --accept-standard --expected-sha256 EXPECTED_LOWERCASE_SHA256
+```
+
+Replace the digest with the one approved by your policy outside model context.
+The CLI compares it with the private copy. Either flag alone, an invalid digest or
+a mismatch prevents submission. This interface does not authorize arbitrary CI
+artifacts or confidential repository contents. The caller must establish authority
+for the exact bytes before invoking it.
+
+VTAI checks for an existing file report first. Only confirmed absence permits the
+new submission path to proceed. `status: exists` returns that existing report and
+does not claim a new analysis. The CLI does not make a second precheck that would
+consume another query allowance.
+
+## Durable recovery before sending
+
+Before dispatch, the CLI exclusively creates and fsyncs a small local reference,
+including the required directory entries. If private durable storage cannot be
+confirmed, **no POST starts**. Printing the digest alone is not this guarantee.
+The JSON stores only:
+
+```json
+{
+  "schema_version": 1,
+  "service": "https://ai.virustotal.com/api/v3",
+  "mode": "standard",
+  "sha256": "THE_COPIED_FILE_SHA256"
+}
+```
+
+The default root is `$XDG_STATE_HOME/vt-mcp`, or `~/.local/state/vt-mcp` when the
+XDG value is absent or relative. `submit --state-dir /absolute/private/state`
+selects a different root, useful for an isolated account or test runner. The root
+and its internal directories must be private to the current user; new directories
+use mode 700 and reference files mode 600. Directory traversal rejects symlinks.
+This durability implementation requires the tested POSIX descriptor and directory
+fsync capabilities; unsupported storage fails before POST.
+
+Internal directories are keyed by service and an irreversible, service-specific
+fingerprint of the credential. The fingerprint is local indexing metadata only:
+it is not in the reference JSON, HTTP requests, stdout or diagnostic messages.
+The raw credential is never stored there. Different credentials use different
+namespaces; the CLI does not infer that two credentials identify the same account.
+The reference filename is the SHA-256, and the content does not include the sample,
+original pathname or analysis result.
+
+A reference already present for that service/credential/SHA allows **only a receipt
+GET**, never another POST. This also applies after response loss, an uncertain
+local write acknowledgement, or a crash between saving the reference and actually
+sending. A missing server receipt does not make the local operation eligible for
+automatic resubmission. A concurrent process may receive a closed storage error
+while another finishes creating the reference; it must not bypass that state.
+
+Keep references after interruption and preserve them when moving the client. Do
+not delete one to turn recovery into another submission. Rotating a credential
+changes the local namespace and leaves the old reference intact. Use
+`vt-mcp submission SHA256` with the current authorized credential to recover on
+VTAI; access still depends on the account, and a new credential is not proof of
+the same identity. A different or deleted local state directory does not carry
+the earlier client's no-repeat guarantee. VTAI independently retains its own
+per-account receipt; it makes no cross-account deduplication claim.
+
+## Submission outcomes and recovery
+
+Normal stdout is one final JSON object. Prompts go to stderr. A submitted result
+has this shape; `analysis_status: null` means the accepted descriptor did not
+establish an analysis state:
+
+```json
+{
+  "status": "submitted",
+  "mode": "standard",
+  "submission_id": "SHA256",
+  "sha256": "SHA256",
+  "size": 313,
+  "analysis_id": "OPAQUE_REGISTERED_ID",
+  "analysis_status": null,
+  "next_poll_after_seconds": 5,
+  "can_resubmit": false,
+  "report": null
+}
+```
+
+`submitted` means an analysis ID was durably registered; it is **not completion**.
+`submission_unknown` has null analysis ID, state, next poll and report. It means
+processing or acceptance could not be confirmed and can remain unknown permanently.
+It is neither definitive rejection nor permission to upload again. `exists` has
+an existing `report: {"data": ...}` and no new analysis ID.
+
+Recover by the copied SHA-256, even when the original CLI never received an ID:
+
+```bash
+vt-mcp submission LOWERCASE_SHA256
+```
+
+This reads only the current account's receipt; it does not upload, contact
+VirusTotal or spend analysis-query quota. A 404 means no receipt was available to
+that account at the time of the read. It does not resolve an earlier ambiguous
+local dispatch. If the result remains unknown, the selected analysis may never
+be recoverable. A later file report found by hash must not be attributed to that
+uncertain analysis.
+
+The client never automatically retries a POST. Its single POST sends raw bytes
+with `Content-Type: application/octet-stream` and
+`X-VTAI-Consent: standard-v1` to `/api/v3/submissions/{sha256}`. There is no filename,
+multipart metadata, caller-selected idempotency key or redirect following.
+Timeouts, lost responses and invalid success responses preserve uncertainty and
+the durable reference. Known access/quota/input errors remain distinct; their
+`retryable` metadata applies only to reads, not to repeating this submission.
+
+## Read the selected analysis
+
+```bash
+vt-mcp analysis -- OPAQUE_REGISTERED_ID
+vt-mcp analysis --wait 180 -- OPAQUE_REGISTERED_ID
+```
+
+An analysis ID is opaque, is not a URL destination, and does not grant access.
+It is bounded to 1024 UTF-8 bytes without whitespace/control characters; `.` and
+`..` are invalid. Quote shell-sensitive IDs as individual arguments and use `--` before the ID
+so a leading dash is not parsed as an option. The client
+encodes the entire ID as one HTTP path segment. VTAI verifies ownership and current
+access for every read.
+
+`status` is `pending` or `completed`. `analysis_status` preserves `queued`,
+`in-progress`, `completed` or null. Pending results can retain partial evidence.
+`not_available_yet` means no analysis evidence was available; `result_not_ready`
+means the provider reported completion but its matching file item was not yet
+available. Completion requires the registered analysis to be completed with valid
+stats/results and one matching file item, as verified by VTAI.
+
+The returned stats, engine results and analysis date belong to **that analysis**.
+No latest file-report request replaces them. `retrieved_at` is the query time;
+missing analysis date remains null. Failed or timed-out engines are evidence,
+not a fabricated global `failed` state. Labels and analysis content are untrusted
+data. [VirusTotal analysis object](https://docs.virustotal.com/reference/analyses-object).
+
+Each valid owned analysis lookup consumes VTAI query quota. `--wait` accepts a
+finite number of seconds from 0 to 300; zero performs just one read. Positive
+waiting starts with a read, uses intervals of at least 5 seconds increasing up to
+30 seconds, honors a longer sanitized Retry-After, and retries only safe reads.
+No retry runs after the finite wait budget or after cancellation.
+
+With positive `--wait`, the latest observed analysis gains:
+
+```json
+"wait": {"status": "budget_exhausted", "last_error": null}
+```
+
+`wait.status` is `completed` or `budget_exhausted`; a transient error after the last
+pending observation appears as a closed `last_error`. Ending the budget keeps the
+observed analysis pending. When there was no valid result, the CLI returns an
+error instead of inventing pending evidence. A non-retryable read error, such as
+denied access, ends waiting with that error. Waiting is optional CLI behavior;
+the MCP tool performs one bounded read and never polls.
+
+## Limits and diagnostics
+
+The POST budget is 130 seconds, separate from existing report-tool timeouts.
+Each analysis or receipt GET is bounded to 35 seconds; a positive `--wait` further
+bounds the whole polling loop. Responses are capped at 256 KiB, schema-validated
+and minimized; raw provider bodies and exception messages are not reflected.
+Copy preparation checks a fifteen-second budget between local operations, including
+its final preparation step. Filesystem operations blocked inside the kernel are
+not guaranteed interruptible. Temporary copies close and are removed on completion,
+failure or interruption.
+
+| Exit | Meaning |
+|---|---|
+| 0 | A valid `submitted`, `exists`, `pending` or `completed` response; inspect `status` |
+| 3 | `submission_unknown`, including an error with unknown recovery metadata |
+| 2 | Closed configuration, consent, storage, input, access or service error |
+| 130 | Handled local interrupt; output can remain `submission_unknown` after dispatch |
+
+An error has `status: error` and an `error` object with a closed code and message.
+API errors also carry HTTP status, read retryability and optional retry delay.
+When a local submission reference exists, `submission` retains safe recovery
+metadata. A terminating signal can stop the process without JSON; the reference
+still enables a later receipt read. Exit 0 is not a security approval, and exit 3
+does not imply nothing was sent.
+
+Do not paste credentials or private file contents into model context to diagnose
+these outcomes. `local_state_unavailable` means storage was not confirmed before
+POST; `access_denied`, `rate_limited`, `not_found`, `timeout` and
+`submission_unknown` have different meanings. Stopping or removing the CLI does
+not revoke access or withdraw an uploaded sample. Revoke credentials separately
+through the [access workflow](access.md).
+
+## Validation scope
+
+[Service validation](clients.md#service-and-workflow-validation) records real
+staging recovery and a separate Codex public HTTP read of an already-submitted
+analysis. The Codex session made one `get_analysis` call and preserved its
+selected identity and completed evidence, including unsupported and failed
+engine results. It did not submit a file or validate analysis through stdio.
+These observations are distinct from local tests using harmless generated text
+and mocked or loopback VTAI. A recovered result does not imply a new upload
+occurred, and `completed` is not a safety verdict.
+
+The legacy upload route has different guarantees and is not used or upgraded by
+this client. These instructions do not authorize submitting private sources,
+build artifacts, logs or dependencies.

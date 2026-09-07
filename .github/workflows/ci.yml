@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.10'
+          python-version: ${{ matrix.python }}
+          enable-cache: false
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Lint and check formatting
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+      - name: Test
+        run: uv run --no-sync pytest
+      - name: Build the release candidate once
+        id: build
+        if: matrix.python == '3.12'
+        run: |
+          uv build --no-build-isolation
+          uv run --no-sync twine check --strict dist/*
+          (cd dist && sha256sum -- *.whl *.tar.gz > SHA256SUMS)
+          manifest_sha256="$(sha256sum dist/SHA256SUMS | cut -d ' ' -f 1)"
+          printf 'manifest_sha256=%s\n' "$manifest_sha256" >> "$GITHUB_OUTPUT"
+      - name: Retain the exact candidate for independent QA and release
+        id: upload
+        if: matrix.python == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+      - name: Record candidate identity
+        if: matrix.python == '3.12'
+        env:
+          MANIFEST_SHA256: ${{ steps.build.outputs.manifest_sha256 }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          {
+            printf 'Candidate commit: `%s`\n\n' "$GITHUB_SHA"
+            printf '[Download the candidate](%s) for independent QA.\n\n' "$ARTIFACT_URL"
+            printf 'After QA succeeds, use these lines in the annotated release tag:\n\n'
+            printf '```text\nCI-Run: %s\nSHA256SUMS-SHA256: %s\n```\n' "$GITHUB_RUN_ID" "$MANIFEST_SHA256"
+            printf '\nCI success alone does not record independent QA approval.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  fixture-policy:
+    name: Synthetic fixture policy / ${{ matrix.case }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {case: allow, version: '1.0.0', state: allow, exit: 0}
+          - {case: allow-partial, version: '1.0.0', state: allow, exit: 0}
+          - {case: allow-v2, version: '1.0.1', state: allow, exit: 0}
+          - {case: review, version: '1.0.0', state: review, exit: 10}
+          - {case: block, version: '1.0.0', state: block, exit: 11}
+          - {case: pending, version: '1.0.0', state: pending, exit: 12}
+          - {case: unknown, version: '1.0.0', state: unknown, exit: 13}
+          - {case: error, version: '1.0.0', state: error, exit: 2}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.10'
+          python-version: '3.12'
+          enable-cache: false
+      - name: Install locked dependencies without any VTAI credential
+        run: uv sync --locked
+      - name: Evaluate synthetic evidence; never contact VTAI
+        id: gate
+        # Only the synthetic matrix observes expected failures this way.
+        # Neither live release gate has continue-on-error.
+        continue-on-error: true
+        env:
+          FIXTURE_VERSION: ${{ matrix.version }}
+          POLICY_CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          uv run --no-sync python scripts/ci_vtai_fixture.py evaluate \
+            --fixture-version "$FIXTURE_VERSION" \
+            --input "tests/fixtures/ci-policy/$POLICY_CASE.json" \
+            --evidence "$RUNNER_TEMP/pilot-evidence.json"
+          result=$?
+          printf 'exit_code=%s\n' "$result" >> "$GITHUB_OUTPUT"
+          exit "$result"
+      - name: Simulated publication marker; no artifact is published
+        id: simulated_publish
+        if: steps.gate.outcome == 'success'
+        run: touch "$RUNNER_TEMP/pilot-publication-marker"
+      - name: Verify the gate result and actual marker presence or absence
+        if: always()
+        env:
+          EXPECTED_STATE: ${{ matrix.state }}
+          EXPECTED_EXIT: ${{ matrix.exit }}
+          ACTUAL_EXIT: ${{ steps.gate.outputs.exit_code }}
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.simulated_publish.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          evidence = json.loads((temporary / 'pilot-evidence.json').read_text())
+          assert evidence['mode'] == 'synthetic'
+          assert evidence['scope'] == 'public-fixture-only'
+          assert evidence['decision']['policy'] == 'public-fixture-v1'
+          assert evidence['decision']['state'] == os.environ['EXPECTED_STATE']
+          assert os.environ['ACTUAL_EXIT'] == os.environ['EXPECTED_EXIT']
+          allowed = os.environ['EXPECTED_STATE'] == 'allow'
+          assert os.environ['GATE_OUTCOME'] == ('success' if allowed else 'failure')
+          assert os.environ['PUBLISH_OUTCOME'] == ('success' if allowed else 'skipped')
+          assert (temporary / 'pilot-publication-marker').exists() == allowed
+          print('Observed the expected synthetic decision and publication-marker behavior.')
+          PY
+      - name: Retain only the synthetic policy evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: synthetic-pilot-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pilot-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: false

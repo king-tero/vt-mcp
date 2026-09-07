@@ -1,0 +1,5 @@
+[mcp_servers.virustotal]
+command = "vt-mcp"
+
+[mcp_servers.virustotal.env]
+VTAI_TOKEN_FILE = "~/.config/vt-mcp/token"

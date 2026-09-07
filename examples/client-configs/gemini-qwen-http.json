@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "virustotal": {
+      "httpUrl": "https://ai.virustotal.com/mcp",
+      "headers": {
+        "x-apikey": "${VTAI_MCP_TOKEN}"
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+[project]
+name = "vt-mcp"
+version = "0.7.0"
+description = "VirusTotal intelligence for MCP clients, powered by VTAI"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "vt-mcp contributors"}]
+dependencies = [
+    "anyio>=4.15.1,<5",
+    "httpx>=0.28.1,<0.29",
+    "mcp==2.1.1",
+    "pydantic>=2.13.5,<3",
+]
+
+[project.urls]
+Homepage = "https://ai.virustotal.com"
+Repository = "https://github.com/king-tero/vt-mcp"
+Issues = "https://github.com/king-tero/vt-mcp/issues"
+
+[project.scripts]
+vt-mcp = "vt_mcp.__main__:main"
+
+[build-system]
+requires = ["uv_build==0.12.10"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1,<10",
+    "ruff>=0.16.6,<0.17",
+    "twine>=6,<7",
+    "uv_build==0.12.10",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv.build-backend]
+source-include = [
+    "docs/access.md",
+    "docs/clients.md",
+    "docs/analysis.md",
+    "docs/control.md",
+    "docs/embedding.md",
+    "docs/ci-pilot.md",
+    "docs/releases/*.md",
+    "examples/**",
+]

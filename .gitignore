@@ -1,0 +1,28 @@
+# Credenciales y configuración local
+.env
+.env.*
+!.env.example
+.local/
+.worktrees/
+
+# Instrucciones de agentes locales; no publicar en Git
+AGENTS.md
+
+# Python y herramientas
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Editor y sistema
+.DS_Store
+.idea/
+
+# Local agent instructions
+AGENTS.md

@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "virustotal": {
+      "type": "local",
+      "command": ["vt-mcp"],
+      "environment": {
+        "VTAI_TOKEN_FILE": "~/.config/vt-mcp/token"
+      }
+    }
+  }
+}

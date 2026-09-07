@@ -1,0 +1,10 @@
+{
+  "status": "error",
+  "error": {
+    "code": "unavailable",
+    "message": "inert untrusted message",
+    "http_status": 503,
+    "retryable": false,
+    "retry_after_seconds": null
+  }
+}
