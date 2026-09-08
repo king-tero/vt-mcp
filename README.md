@@ -8,6 +8,9 @@ Version **0.8.0** adds autonomous MCP submission and receipt recovery over the e
 
 ## Connect your client
 
+The [directory and discovery guide](docs/discovery.md) identifies the canonical
+MCP Registry manifest and Glama listing, with their connection requirements.
+
 1. Reuse existing access or register explicitly at [Connect to VirusTotal MCP](https://ai.virustotal.com/connect/mcp), following the [access guide](docs/access.md). Keep the token in protected storage outside chat and project files.
 2. Choose a connection below and follow [client setup](docs/clients.md). Configure the credential outside the model conversation.
 3. Restart the client, inspect its MCP tools and make one explicit report query.

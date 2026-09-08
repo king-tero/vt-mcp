@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.king-tero/vt-mcp",
+  "title": "VirusTotal",
+  "description": "VirusTotal reports for files, URLs, domains and IPs, plus file submission and analysis recovery.",
+  "version": "0.8.0",
+  "repository": {
+    "url": "https://github.com/king-tero/vt-mcp",
+    "source": "github",
+    "id": "1359828317"
+  },
+  "websiteUrl": "https://ai.virustotal.com/connect/mcp",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://ai.virustotal.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Static VTAI agent token. Get free access at https://ai.virustotal.com/connect/mcp.",
+          "isRequired": true,
+          "isSecret": true,
+          "value": "Bearer {VTAI_TOKEN}",
+          "variables": {
+            "VTAI_TOKEN": {
+              "description": "Your VTAI token, without the Bearer prefix. Store it in the client's protected credential settings.",
+              "isRequired": true,
+              "isSecret": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
