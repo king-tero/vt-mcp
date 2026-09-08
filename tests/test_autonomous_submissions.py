@@ -333,6 +333,11 @@ async def test_cancel_or_deadline_after_dispatch_closes_copy_and_preserves_refer
 ):
     path, state = local
     original, copies, calls = submissions.copy_snapshot, [], []
+    original_submit, budgets = LocalSubmissions._submit, []
+
+    async def capture_budget(self, snapshot, budget, **kwargs):
+        budgets.append(budget)
+        return await original_submit(self, snapshot, budget, **kwargs)
 
     @contextmanager
     def track(*args, **kwargs):
@@ -343,20 +348,23 @@ async def test_cancel_or_deadline_after_dispatch_closes_copy_and_preserves_refer
     async def handler(request):
         calls.append(request.method)
         if request.method == "POST":
+            if external:
+                cancellation.cancel()
+            else:
+                budgets[0].deadline = anyio.current_time()
             await anyio.sleep_forever()
         return httpx.Response(200, json=submission_response())
 
     monkeypatch.setattr(submissions, "copy_snapshot", track)
-    if not external:
-        monkeypatch.setattr(submissions, "LOCAL_SUBMISSION_SECONDS", 0.05)
+    monkeypatch.setattr(LocalSubmissions, "_submit", capture_budget)
     async with AnalysisClient(Settings(TOKEN), transport=httpx.MockTransport(handler)) as client:
         service = LocalSubmissions(client, directory=state)
         if external:
-            with anyio.move_on_after(0.05) as cancellation:
+            with anyio.fail_after(5), anyio.CancelScope() as cancellation:
                 await service.submit_local_file(str(path))
             assert cancellation.cancelled_caught
         else:
-            with pytest.raises(AnalysisError) as error:
+            with anyio.fail_after(5), pytest.raises(AnalysisError) as error:
                 await service.submit_local_file(str(path))
             assert error.value.error["code"] == "submission_unknown"
             assert error.value.submission["sha256"] == SHA
