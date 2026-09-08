@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp(virustotal/get_file_report)",
+      "mcp(virustotal/get_url_report)",
+      "mcp(virustotal/get_domain_report)",
+      "mcp(virustotal/get_ip_report)",
+      "mcp(virustotal/get_analysis)",
+      "mcp(virustotal/get_submission)",
+      "mcp(virustotal/submit_file)",
+      "mcp(virustotal/submit_local_file)"
+    ]
+  }
+}

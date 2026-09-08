@@ -1,6 +1,8 @@
 # Connect an MCP client
 
-Choose remote HTTP or local stdio for the same four read-only report tools. Remote HTTP needs a client and a VTAI token, with no local vt-mcp or Python installation. stdio needs the verified wheel. These instructions cover version 0.7.0. The package also exposes `get_analysis` for an analysis registered to the current VTAI actor; see the [submission and recovery guide](analysis.md). The [latest native-client validation](client-validation-2026-09-07.md) covers all five tools in agy through stdio, and in Claude Code and Codex through stdio and HTTP. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
+These instructions cover **vt-mcp 0.8.0**: seven common tools over remote HTTP or local stdio, and an eighth local-file tool over stdio. HTTP needs a compatible client and VTAI token, with no local Python installation; stdio needs the verified wheel. Four report tools and `get_analysis` remain read-only. `submit_file(sha256, content_base64)` submits up to 24,000,000 decoded bytes; `get_submission(sha256)` recovers the account’s receipt. Stdio additionally offers `submit_local_file(path, expected_sha256=None)` up to 32,000,000 bytes. See the [submission and recovery guide](analysis.md).
+
+Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **Validation of the new 0.8 tools is pending.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
 
 Start with [Antigravity CLI (`agy`)](#antigravity-cli-agy), [Claude Code](#claude-code), or [Codex CLI](#codex-cli--remote-http). Other client guides follow those three.
 
@@ -14,7 +16,7 @@ agy mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" virustotal vt-mcp
 
 Flags must precede the server name. Use an absolute executable path if needed. CLI 1.1.27 saved this entry in `~/.gemini/config/mcp_config.json`; its fields match [stdio.json](../examples/client-configs/stdio.json). Restart `agy` and inspect `/mcp`. Remove it with `agy mcp remove virustotal`. The native model login is separate from VTAI access; this setup does not require Vertex or ADC. [Official MCP documentation](https://antigravity.google/docs/cli/mcp/).
 
-Interactive sessions can ask permission for each tool. For unattended report queries, merge these specific rules into `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`, preserving existing settings:
+For the full local 0.8 workflow, merge these eight specific rules into `permissions.allow` in `~/.gemini/antigravity-cli/settings.json`, preserving existing settings. Grant submission tools only for tasks/files authorized for standard sharing; omit those entries for a read-only setup:
 
 ```json
 {
@@ -23,7 +25,11 @@ Interactive sessions can ask permission for each tool. For unattended report que
       "mcp(virustotal/get_file_report)",
       "mcp(virustotal/get_url_report)",
       "mcp(virustotal/get_domain_report)",
-      "mcp(virustotal/get_ip_report)"
+      "mcp(virustotal/get_ip_report)",
+      "mcp(virustotal/get_analysis)",
+      "mcp(virustotal/get_submission)",
+      "mcp(virustotal/submit_file)",
+      "mcp(virustotal/submit_local_file)"
     ]
   }
 }
@@ -31,9 +37,9 @@ Interactive sessions can ask permission for each tool. For unattended report que
 
 Existing deny or ask rules take precedence over allow rules. Select a model available to your account with `agy models`; `agy -p 'Query the existing VirusTotal report for example.com and show its source, analysis date and coverage.'` runs a single prompt. A successful process exit alone does not prove that a tool ran: check the returned report or `--output-format stream-json` events. [Permissions](https://antigravity.google/docs/cli/permissions/), [headless execution](https://antigravity.google/docs/cli/headless/).
 
-For unattended reads of an analysis registered to your VTAI account, also allow `mcp(virustotal/get_analysis)`. This permission does not enable uploads. agy can save a long tool result in its own generated output file; the verified analysis workflow used `view_file` to read that result. MCP permissions and prompts do not prevent other host tools from running.
+The eight names above describe the new server contract; their 0.8 native workflow validation is pending. `get_analysis` and `get_submission` do not upload. agy can save a long tool result in its own generated output file; the historical analysis workflow used `view_file` to read that result. MCP grants do not prevent unrelated host tools from running or authorize arbitrary file disclosure.
 
-CLI 1.1.27 completed all five tools through stdio with its native login. A separate loopback test found that `$VAR`, `${VAR}` and `${env:VAR}` in HTTP headers were sent literally. Use the protected token-file stdio setup for this version; production HTTP remains unvalidated. See the [session evidence and limits](client-validation-2026-09-07.md).
+With v0.7.0, CLI 1.1.27 completed all five read-only tools through stdio with its native login. A separate loopback test found that `$VAR`, `${VAR}` and `${env:VAR}` in HTTP headers were sent literally. Use the protected token-file stdio setup for this version; production HTTP remains unvalidated. See the [session evidence and limits](client-validation-2026-09-07.md).
 
 ## Claude Code
 
@@ -50,11 +56,17 @@ Inspect `/mcp` or `claude mcp list`. Remove the stdio user entry with `claude mc
 
 For a per-run connection, save an adjusted [stdio fragment](../examples/client-configs/stdio.json) in a local file and pass `--strict-mcp-config --mcp-config /absolute/path/vt-mcp.json`. This loads only the specified MCP configuration while preserving your native login. For unattended reports, `--allowedTools` accepts the four exact names `mcp__virustotal__get_file_report`, `mcp__virustotal__get_url_report`, `mcp__virustotal__get_domain_report` and `mcp__virustotal__get_ip_report` as a comma-separated list. The verified run used those grants with `--permission-mode dontAsk`, `--tools ""` and `--print --verbose --output-format stream-json`. Inspect tool results and permission denials as well as the final response. [Claude Code permissions](https://code.claude.com/docs/en/permissions).
 
-To include an analysis registered to your account, add `mcp__virustotal__get_analysis` to the exact tool grants. The same per-run configuration flags accept the HTTP fragment. CLI 2.1.263 completed all five tools in separate stdio and public HTTP sessions using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
+For an authorized 0.8 workflow, use these exact common grants as the comma-separated `--allowedTools` value:
+
+```text
+mcp__virustotal__get_file_report,mcp__virustotal__get_url_report,mcp__virustotal__get_domain_report,mcp__virustotal__get_ip_report,mcp__virustotal__get_analysis,mcp__virustotal__get_submission,mcp__virustotal__submit_file
+```
+
+For **stdio only**, append `mcp__virustotal__submit_local_file`. The seven HTTP tools do not read a local path. Keep `--permission-mode dontAsk`, `--tools ""` and the explicit MCP configuration if using the previously documented unattended pattern; a denied tool is a permission failure, not successful completion. Do not replace specific grants with a general permission bypass. Validation of these new 0.8 grants and submission flows is pending. The same per-run configuration flags accept the HTTP fragment. In the historical v0.7.0 sessions, CLI 2.1.263 completed all five read-only tools through stdio and public HTTP using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
 
 ## Codex CLI — remote HTTP
 
-Codex CLI 0.153.4 has completed all five tools in separate public HTTP and stdio sessions with `gpt-6-astra` / `xhigh` requested. The [validation matrix](#validation-levels) records these separately from historical report-only sessions, guard behavior and release acceptance. Use the [versioned installation instructions](../README.md#install-for-local-stdio) and verify the artifact associated with the selected release.
+With v0.7.0, Codex CLI 0.153.4 completed all five read-only tools in separate public HTTP and stdio sessions with `gpt-6-astra` / `xhigh` requested. The [validation matrix](#validation-levels) records these separately from historical report-only sessions, guard behavior and release acceptance. Use the [versioned installation instructions](../README.md#install-for-local-stdio) and verify the artifact associated with the selected release.
 
 Merge this entry into `~/.codex/config.toml`, preserving other settings. Replace an existing `virustotal` stdio entry instead of combining `command` and `url` or registering twice.
 
@@ -85,6 +97,8 @@ VTAI accepts only `x-apikey`. Do not replace this with `--bearer-token-env-var`,
 
 Restart and inspect `/mcp`, then [check the tools](#try-the-tools). Remove the connection with `codex mcp remove virustotal` and restart. Reuse the same active VTAI credential if you reconnect.
 
+With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The new 0.8 model workflow is pending validation.
+
 ## Codex CLI — local stdio
 
 Install the verified wheel first. Use an absolute executable path if `vt-mcp` is absent from the client's PATH. The command passes a credential-file path, not its contents:
@@ -93,7 +107,7 @@ Install the verified wheel first. Use an absolute executable path if `vt-mcp` is
 codex mcp add virustotal --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" -- vt-mcp
 ```
 
-Restart Codex and use `/mcp` to inspect the integration. Remove it with `codex mcp remove virustotal`. The command syntax was checked against Codex CLI `0.153.4` and [official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp) on 2026-09-06.
+Local 0.8 discovery should additionally include `submit_local_file`, for eight tools. The path belongs to the local vt-mcp process; its optional expected SHA-256 must match the copied bytes. Allow this specific tool only for authorized standard-sharing tasks. Restart Codex and use `/mcp` to inspect the integration. Remove it with `codex mcp remove virustotal`. The command syntax was checked against Codex CLI `0.153.4` and [official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp) on 2026-09-06.
 
 ## Gemini CLI
 
@@ -166,6 +180,15 @@ Claude's fixed-header organization beta shares a credential across the organizat
 
 ## Try the tools
 
+Version 0.8 discovery has seven common tools, or eight for local stdio. For an
+existing report, use the read-only examples below. For an authorized file, use
+`submit_file` with SHA-256 and base64 bytes, or local stdio `submit_local_file`
+with its path. Follow the [autonomous workflow](analysis.md#autonomous-mcp-workflow):
+keep the SHA-256, recover with `get_submission` if needed, and read the returned
+analysis ID. A tool invocation is not proof of upload or completion: inspect
+`exists`, `submitted`, `submission_unknown`, `pending` and `completed` faithfully.
+Do not repeat submission to resolve an ambiguous response.
+
 Ask your client to query an existing report for `example.com`, `https://example.com/`, or an IP you are authorized to disclose. For file regression, use the SHA-256 of the empty file: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 
 Ask for the source, analysis date and coverage, with missing data stated explicitly. A 404 is a valid unknown result. These queries never start a scan. A URL query discloses the complete URL to VTAI and VirusTotal; use domain scope when sufficient. Removing a client configuration does not revoke the VTAI credential.
@@ -188,13 +211,25 @@ Use the connection page to revoke the credential when required. Only HTTP 204 co
 
 ## Validation levels
 
-Evidence reviewed through 2026-09-07 (UTC). Configuration parsing, MCP discovery, an actual tool call and a model-assisted workflow are separate observations. The generic Python SDK test is not evidence of a Claude or Gemini model workflow.
+Historical evidence reviewed through 2026-09-07 (UTC). Configuration parsing, MCP discovery, an actual tool call and a model-assisted workflow are separate observations. The generic Python SDK test is not evidence of a Claude or Gemini model workflow.
 
 Client checks identify the artifact and date tested. Checks for earlier
 versions describe private development, not installation from this public
 repository. Each public release requires its own verified CI run and checksums.
 
-### Latest native-client coverage
+### Version 0.8 workflow status
+
+| Client | Local stdio: eight tools | HTTP: seven tools |
+|---|---|---|
+| Antigravity CLI (`agy`) | Contract/configuration documented; native validation pending | Not supported by the verified credential-reference setup in 1.1.27; use stdio |
+| Claude Code | Contract/configuration documented; native validation pending | Contract/configuration documented; native validation pending |
+| Codex CLI | Contract/configuration documented; native validation pending | Contract/configuration documented; native validation pending |
+
+Publication, installation and deployment of 0.8 require separate acceptance.
+The new tools do not extend the guard's scope or establish that an analyzed file
+is safe. The rows below retain their original 0.7 evidence.
+
+### Historical 0.7 native-client coverage
 
 | Client | Version | stdio | Public HTTP |
 |---|---|---|---|
@@ -254,7 +289,7 @@ The Antigravity production run on 2026-09-07, 10:12:15–10:12:18 UTC, used the 
 The optional local `vt-mcp guard` hook is separate from the MCP connection above. It
 recognizes only `/usr/bin/python3 -I /absolute/path/script.py` under its documented
 grammar, with Linux sealed-data support, a pinned policy and normal hook trust.
-It does not add a sixth MCP tool or rely on a model choosing to query MCP.
+It does not add an MCP tool or rely on a model choosing to query MCP.
 
 | Guard evidence | Observed scope | Limits |
 |---|---|---|

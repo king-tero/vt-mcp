@@ -15,7 +15,7 @@ from vt_mcp.vtai_client import Settings
 pytestmark = pytest.mark.anyio
 
 
-async def test_local_has_only_read_analysis_tool_with_structured_parity():
+async def test_local_analysis_read_preserves_structured_parity():
     calls = []
 
     def handler(request):
@@ -26,8 +26,8 @@ async def test_local_has_only_read_analysis_tool_with_structured_parity():
         create_server(Settings(TOKEN), transport=httpx.MockTransport(handler))
     ) as client:
         tools = (await client.list_tools()).tools
-        assert len(tools) == 5
-        assert {tool.name for tool in tools}.isdisjoint({"submit", "get_submission", "upload_file"})
+        assert len(tools) == 8
+        assert {tool.name for tool in tools}.isdisjoint({"submit", "upload_file"})
         tool = next(tool for tool in tools if tool.name == "get_analysis")
         assert set(tool.input_schema["properties"]) == {"analysis_id"}
         assert tool.annotations.read_only_hint and tool.annotations.idempotent_hint

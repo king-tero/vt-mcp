@@ -2,7 +2,7 @@
 
 The reference gate checks two explicitly public versions of an inert Agent Skill
 before publishing the already reviewed release candidate. It does **not** submit
-or establish a verdict for the release wheel, sdist, product source, dependencies,
+or establish a verdict for the private wheel, sdist, product source, dependencies,
 logs or host. The fixture text is treated as bytes, never installed or executed.
 The synthetic policy matrix has run in GitHub Actions. Each release run must
 separately complete both live fixture gates and retain their evidence before
@@ -95,7 +95,7 @@ Allow is a decision under this limited policy, never a claim that a file is safe
 
 ## Reference driver and JSON
 
-Use the complete [v0.7.0 source checkout](https://github.com/king-tero/vt-mcp/tree/v0.7.0),
+Use the complete [v0.8.0 source checkout](https://github.com/king-tero/vt-mcp/tree/v0.8.0),
 with that version's verified wheel installed in its Python environment. The wheel
 and sdist do **not** contain the driver, fixtures or workflows; downloading the
 installation sdist alone is insufficient. Select the actual tag and verify its

@@ -2,9 +2,9 @@
 
 VirusTotal intelligence for MCP clients, powered by **VTAI**.
 
-Look up existing file, URL, domain and IP reports from your assistant. Connect to VTAI over HTTP without installing vt-mcp or Python, or run the same MCP tools locally over stdio. Basic use requires a free, revocable **VTAI token**; you do not need your own VirusTotal API key.
+Look up file, URL, domain and IP reports, submit authorized files and recover their analyses from your assistant. Connect to VTAI over HTTP without installing vt-mcp or Python, or run the MCP server locally over stdio with an additional local-file tool. Basic use requires a free, revocable **VTAI token**; you do not need your own VirusTotal API key.
 
-Version **0.7.0** adds a release gate for two explicitly public CI fixtures, retaining the report tools, authorized submission CLI and opt-in Codex guard. Use the [versioned release](https://github.com/king-tero/vt-mcp/releases/tag/v0.7.0) for installation and the [validation matrix](docs/clients.md#validation-levels) for observed workflows and their limits. Publication requires both live fixture gates and evidence retention to succeed; historical synthetic tests do not establish that outcome for a release run.
+Version **0.8.0** adds autonomous MCP submission and receipt recovery over the existing VTAI service: **seven common tools over HTTP or stdio, plus one local-file tool over stdio**. Submission tools have no per-call confirmation or consent argument; configure your host to permit only the operations and files you authorize for standard public sharing. The existing CLI, report queries, opt-in guard and public-fixture release gates remain available. See the [release notes](docs/releases/v0.8.0.md) and [validation matrix](docs/clients.md#validation-levels); 0.8 validation is pending, and the historical 0.7 sessions do not validate the new tools.
 
 ## Connect your client
 
@@ -27,11 +27,13 @@ Both routes use VTAI's rights and quotas. VTAI authenticates **`x-apikey`**, wit
 
 `VTAI_MCP_TOKEN` names an environment variable; it is not a token value. Use the [protected-file launch instructions](docs/access.md#remote-client-environment) to supply it for HTTP without putting the credential in arguments, prompts or configuration text.
 
-Antigravity CLI (`agy`) 1.1.27 has completed all five tools through stdio. Claude Code 2.1.263 and Codex CLI 0.153.4 have each completed all five through both stdio and public HTTP. The [native-client validation](docs/client-validation-2026-09-07.md) records 25 MCP calls, the same selected analysis across sessions, and agy's auxiliary read of its generated analysis output. agy HTTP remains unvalidated: its tested header variables were sent literally. These observations are separate from guard behavior and release verification.
+With **v0.7.0**, Antigravity CLI (`agy`) 1.1.27 completed all five tools through stdio. Claude Code 2.1.263 and Codex CLI 0.153.4 have each completed all five through both stdio and public HTTP. The [native-client validation](docs/client-validation-2026-09-07.md) records 25 MCP calls, the same selected analysis across sessions, and agy's auxiliary read of its generated analysis output. agy HTTP remains unvalidated: its tested header variables were sent literally. These observations are separate from guard behavior and release verification.
 
 [Client setup](docs/clients.md) also covers Antigravity IDE, remaining Gemini CLI authentication routes, Qwen, Kimi, OpenCode and applications using Z.ai or DeepSeek, with their actual validation levels. Antigravity IDE has completed the four report queries through stdio in a separate session. ChatGPT and Claude hosted connectors require separate authentication/account integration and are not provided by these settings. The [configuration fragments](examples/client-configs/README.md) reuse one MCP server across clients.
 
-## Query existing intelligence
+## Tools
+
+The compatible VTAI 0.8 service exposes these seven common tools. The four report queries and `get_analysis` keep their existing read-only behavior.
 
 | Tool | Input |
 |---|---|
@@ -39,7 +41,13 @@ Antigravity CLI (`agy`) 1.1.27 has completed all five tools through stdio. Claud
 | `get_url_report(url)` | HTTP(S) URL |
 | `get_domain_report(domain)` | DNS domain, including Unicode names |
 | `get_ip_report(ip)` | One IPv4 or IPv6 address |
-| `get_analysis(analysis_id)` | Analysis registered to the current VTAI account; requires the compatible analysis service |
+| `get_analysis(analysis_id)` | One read of an analysis registered to the current VTAI account |
+| `submit_file(sha256, content_base64)` | SHA-256 and base64-encoded authorized bytes, at most **24,000,000 decoded bytes** |
+| `get_submission(sha256)` | Recover the current account’s submission receipt without sending the file again |
+
+Local stdio additionally exposes **`submit_local_file(path, expected_sha256=None)`**: it copies a regular file accessible to the local vt-mcp process and submits at most **32,000,000 bytes**. The optional expected digest must match that copy. This tool is absent from remote HTTP; a remote server cannot read a path on your machine.
+
+Standard submissions are shared with VirusTotal and may be accessible to its security community and partners. Inline file content also passes through your MCP host as tool arguments. Do not supply credentials or content you are not authorized to disclose. See the [submission and recovery guide](docs/analysis.md).
 
 For a file report, ask:
 
@@ -51,11 +59,11 @@ For URL intelligence, **the full URL, including query and fragment, is shared wi
 
 ## Install for local stdio
 
-Use Python 3.12+ and [uv](https://docs.astral.sh/uv/getting-started/installation/). Download the wheel and `SHA256SUMS` together from the [v0.7.0 release](https://github.com/king-tero/vt-mcp/releases/tag/v0.7.0). Verify that the manifest contains the exact wheel filename, then check and install from the download directory:
+Use Python 3.12+ and [uv](https://docs.astral.sh/uv/getting-started/installation/). Download the wheel and `SHA256SUMS` together from the [v0.8.0 release](https://github.com/king-tero/vt-mcp/releases/tag/v0.8.0). Verify that the manifest contains the exact wheel filename, then check and install from the download directory:
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-uv tool install --python 3.12 ./vt_mcp-0.7.0-py3-none-any.whl
+uv tool install --python 3.12 ./vt_mcp-0.8.0-py3-none-any.whl
 vt-mcp --version
 ```
 
@@ -69,12 +77,13 @@ Restart the selected client and inspect `/mcp`. Running `vt-mcp` without a subco
 
 | Workflow | Contract and guide |
 |---|---|
-| Submit an authorized file | The [local CLI](docs/analysis.md) takes explicit standard-mode consent, snapshots at most 32,000,000 bytes and saves a durable recovery reference before POST. Standard submissions are shared with the security community. |
+| Submit and recover through MCP | Use `submit_file` for inline bytes or local stdio `submit_local_file` for a file; recover by SHA-256 with `get_submission`, then read the returned analysis ID with `get_analysis`. There is no per-call human confirmation. [Contract and limits](docs/analysis.md#autonomous-mcp-workflow). |
+| Keep using the submission CLI | The [compatible CLI](docs/analysis.md#cli-authorize-one-copy) retains its explicit interactive confirmation or noninteractive acceptance/digest flags and its durable recovery reference. |
 | Read a selected analysis | `vt-mcp analysis --wait 180 -- OPAQUE_REGISTERED_ID` optionally polls that registered analysis. The MCP `get_analysis` tool performs one read. Neither substitutes a newer file report for the selected analysis. |
 | Check one Python execution in Codex | The [opt-in guard](docs/control.md) checks and executes the same sealed main-script bytes for its exact supported command grammar. It never uploads the script and is not a sandbox or an import/dependency check. |
 | Gate two public CI fixtures | The [reference CI pilot](docs/ci-pilot.md) checks only two allowlisted public files. Non-allow outcomes prevent publication. It does not scan the product wheel, sdist, source, logs or dependencies. Both live fixture gates and evidence retention must succeed before the release workflow can publish. |
 
-File paths and upload consent stay in the local CLI; MCP provides no upload tool. An uncertain submission is recovered through its receipt without repeating the POST, and can remain unknown permanently. CLI exit 0 can mean pending; it is not completion or security approval.
+An uncertain submission is recovered through its receipt without repeating the POST, and can remain unknown permanently. `exists` is an existing file report, not a newly completed analysis; `submitted` only establishes a registered analysis ID. CLI exit 0 can mean pending. None of these states is security approval.
 
 ## Configuration and report results
 
@@ -103,7 +112,7 @@ Remove the connection using the [Antigravity CLI (`agy`)](docs/clients.md#antigr
 
 ## Develop and embed
 
-VTAI integrations can reuse the [factory and presentation API](docs/embedding.md). For development, use a source checkout containing `uv.lock`, scripts and tests, rather than the installation sdist. Select the [versioned v0.7.0 source tree](https://github.com/king-tero/vt-mcp/tree/v0.7.0) and verify its release provenance before running the development commands.
+VTAI integrations can reuse the [factory and presentation API](docs/embedding.md). For development, use a source checkout containing `uv.lock`, scripts and tests, rather than the installation sdist. Select the [versioned v0.8.0 source tree](https://github.com/king-tero/vt-mcp/tree/v0.8.0) and verify its release provenance before running the development commands.
 
 ```bash
 uv sync --locked
@@ -113,7 +122,7 @@ uv run pytest
 uv build --no-build-isolation
 ```
 
-The automated suite uses synthetic credentials and mocked or loopback services. The release workflow separately requires the public-fixture gate and publishes the previously verified CI artifacts without rebuilding. [Release notes](docs/releases/v0.7.0.md) describe the 0.7 changes; the [validation matrix](docs/clients.md#validation-levels) keeps historical evidence separate from the requirements for each release run.
+The automated suite uses synthetic credentials and mocked or loopback services. The release workflow separately requires the public-fixture gate and publishes the previously verified CI artifacts without rebuilding. [Release notes](docs/releases/v0.8.0.md) describe the 0.8 changes; the [validation matrix](docs/clients.md#validation-levels) keeps historical evidence separate from the requirements for each release run.
 
 ## License
 

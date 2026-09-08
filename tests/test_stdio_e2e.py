@@ -59,7 +59,7 @@ async def test_real_stdio_subprocess_calls_http_backend(
             },
         )
         async with Client(parameters, read_timeout_seconds=15) as client:
-            assert len((await client.list_tools()).tools) == 5
+            assert len((await client.list_tools()).tools) == 8
             for tool, argument, value, expected in [
                 ("get_file_report", "hash", file_hash, report),
                 ("get_url_report", "url", "https://example.com/", indicator_report("url")),
