@@ -127,10 +127,17 @@ jobs:
           finally:
               # CLI errors may contain raw response bodies; never print their output.
               # logout does not report removal failures, so verify local cleanup too.
-              subprocess.run([publisher, 'logout'], capture_output=True, timeout=10)
-              credential.unlink(missing_ok=True)
-              if credential.exists():
-                  raise SystemExit('Publisher credential cleanup failed')
+              try:
+                  subprocess.run([publisher, 'logout'], capture_output=True, timeout=10)
+              except (OSError, subprocess.TimeoutExpired):
+                  pass
+              finally:
+                  try:
+                      credential.unlink(missing_ok=True)
+                  except OSError:
+                      raise SystemExit('Publisher credential cleanup failed') from None
+                  if credential.exists():
+                      raise SystemExit('Publisher credential cleanup failed')
           PY
       - name: Verify the published version through the anonymous API
         run: |
