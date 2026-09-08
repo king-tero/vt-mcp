@@ -88,9 +88,50 @@ jobs:
           tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
       - name: Authenticate with GitHub OIDC and publish
         run: |
-          trap '"$RUNNER_TEMP/mcp-publisher" logout' EXIT
-          "$RUNNER_TEMP/mcp-publisher" login github-oidc
-          "$RUNNER_TEMP/mcp-publisher" publish server.json
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          manifest = json.loads(Path('server.json').read_text())
+          name = urllib.parse.quote(manifest['name'], safe='')
+          version = urllib.parse.quote(manifest['version'], safe='')
+          url = f'https://registry.modelcontextprotocol.io/v0.1/servers/{name}/versions/{version}'
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  existing = json.load(response)
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise SystemExit('Registry preflight failed; no publication attempted') from None
+          else:
+              if existing['server'] != manifest:
+                  raise SystemExit('This version exists with different metadata; use a new version')
+              print('Identical version already published; no new publication attempted')
+              raise SystemExit(0)
+
+          publisher = str(Path(os.environ['RUNNER_TEMP']) / 'mcp-publisher')
+          credential = Path.home() / '.config/mcp-publisher/token.json'
+          if credential.exists():
+              raise SystemExit('Runner already has publisher credentials; refusing to replace them')
+          try:
+              for label, arguments in [('OIDC authentication', ['login', 'github-oidc']),
+                                       ('Registry publication', ['publish', 'server.json'])]:
+                  result = subprocess.run([publisher, *arguments], capture_output=True, timeout=90)
+                  if result.returncode:
+                      raise SystemExit(f'{label} failed; inspect the public entry before retrying')
+                  print(f'{label} succeeded')
+          finally:
+              # CLI errors may contain raw response bodies; never print their output.
+              # logout does not report removal failures, so verify local cleanup too.
+              subprocess.run([publisher, 'logout'], capture_output=True, timeout=10)
+              credential.unlink(missing_ok=True)
+              if credential.exists():
+                  raise SystemExit('Publisher credential cleanup failed')
+          PY
       - name: Verify the published version through the anonymous API
         run: |
           python3 - <<'PY'
