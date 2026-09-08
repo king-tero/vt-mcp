@@ -93,9 +93,11 @@ outcome. A repeated successful receipt read is recovery, not evidence of another
 upload or scan.
 
 The [client guide](clients.md) lists exact grants in Agy → Claude Code → Codex order.
-The [0.8 submission evidence](clients.md#version-08-submission-evidence) remains
-pending; historical 0.7 read-only sessions do not establish that the new submission
-tools were exercised or that the 0.8 service is deployed in production.
+The [0.8 submission evidence](clients.md#version-08-submission-evidence) records
+five native-client cycles in staging and five against a production candidate,
+preserving pending and completed results. Later API reads confirmed both candidate
+analyses completed. Public rollout remains pending; the historical 0.7 read-only
+sessions retain their separate scope.
 
 <a id="authorize-one-copy"></a>
 
@@ -346,7 +348,7 @@ through the [access workflow](access.md).
 ## Validation scope
 
 The autonomous 0.8 MCP workflow has its own
-[pending evidence record](clients.md#version-08-submission-evidence), separating
+[staging and candidate evidence record](clients.md#version-08-submission-evidence), separating
 tool invocation, new dispatch, receipt recovery and selected-analysis completion.
 The following evidence remains scoped to earlier releases.
 

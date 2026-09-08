@@ -2,7 +2,7 @@
 
 These instructions cover **vt-mcp 0.8.0**: seven common tools over remote HTTP or local stdio, and an eighth local-file tool over stdio. HTTP needs a compatible client and VTAI token, with no local Python installation; stdio needs the verified wheel. Four report tools and `get_analysis` remain read-only. `submit_file(sha256, content_base64)` submits up to 24,000,000 decoded bytes; `get_submission(sha256)` recovers the account’s receipt. Stdio additionally offers `submit_local_file(path, expected_sha256=None)` up to 32,000,000 bytes. See the [submission and recovery guide](analysis.md).
 
-Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **Validation of the new 0.8 tools is pending.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
+Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **The 0.8 submission cycle has been exercised in staging and against a production candidate; public rollout remains pending.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
 
 VT-MCP provides the submission capability; the client owner configures whether the host may use it without asking again. Agy, Claude Code and Codex have separate authorization policies. A tool appearing in discovery is not an approval, and a host prompt or denial is not a new VT-MCP consent requirement. The client-specific grants below preserve that distinction.
 
@@ -39,7 +39,7 @@ For the full local 0.8 workflow, merge these eight specific rules into `permissi
 
 Existing deny or ask rules take precedence over allow rules. Select a model available to your account with `agy models`; `agy -p 'Query the existing VirusTotal report for example.com and show its source, analysis date and coverage.'` runs a single prompt. A successful process exit alone does not prove that a tool ran: check the returned report or `--output-format stream-json` events. [Permissions](https://antigravity.google/docs/cli/permissions/), [headless execution](https://antigravity.google/docs/cli/headless/).
 
-The eight names above describe the new server contract; their 0.8 native workflow validation is pending. `get_analysis` and `get_submission` do not upload. agy can save a long tool result in its own generated output file; the historical analysis workflow used `view_file` to read that result. MCP grants do not prevent unrelated host tools from running or authorize arbitrary file disclosure.
+The eight names above describe the server contract. Agy exercised the three-tool submission, receipt and analysis cycle in [staging and a production candidate](#version-08-submission-evidence); this does not establish calls to all eight tools. `get_analysis` and `get_submission` do not upload. agy can save a long tool result in its own generated output file; the historical analysis workflow used `view_file` to read that result. MCP grants do not prevent unrelated host tools from running or authorize arbitrary file disclosure.
 
 With v0.7.0, CLI 1.1.27 completed all five read-only tools through stdio with its native login. A separate loopback test found that `$VAR`, `${VAR}` and `${env:VAR}` in HTTP headers were sent literally. Use the protected token-file stdio setup for this version; production HTTP remains unvalidated. See the [session evidence and limits](client-validation-2026-09-07.md).
 
@@ -64,7 +64,7 @@ For an authorized 0.8 workflow, use these exact common grants as the comma-separ
 mcp__virustotal__get_file_report,mcp__virustotal__get_url_report,mcp__virustotal__get_domain_report,mcp__virustotal__get_ip_report,mcp__virustotal__get_analysis,mcp__virustotal__get_submission,mcp__virustotal__submit_file
 ```
 
-For **stdio only**, append `mcp__virustotal__submit_local_file`. The seven HTTP tools do not read a local path. Keep `--permission-mode dontAsk`, `--tools ""` and the explicit MCP configuration if using the previously documented unattended pattern; a denied tool is a permission failure, not successful completion. Do not replace specific grants with a general permission bypass. Validation of these new 0.8 grants and submission flows is pending. The same per-run configuration flags accept the HTTP fragment. In the historical v0.7.0 sessions, CLI 2.1.263 completed all five read-only tools through stdio and public HTTP using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
+For **stdio only**, append `mcp__virustotal__submit_local_file`. The seven HTTP tools do not read a local path. Keep `--permission-mode dontAsk`, `--tools ""` and the explicit MCP configuration if using the previously documented unattended pattern; a denied tool is a permission failure, not successful completion. Do not replace specific grants with a general permission bypass. The three-tool 0.8 submission cycle ran with specific grants through both transports in [staging and a production candidate](#version-08-submission-evidence); public rollout remains pending. The same per-run configuration flags accept the HTTP fragment. In the historical v0.7.0 sessions, CLI 2.1.263 completed all five read-only tools through stdio and public HTTP using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
 
 ## Codex CLI — remote HTTP
 
@@ -100,7 +100,7 @@ VTAI accepts only `x-apikey`. Do not replace this with `--bearer-token-env-var`,
 
 Restart and inspect `/mcp`, then [check the tools](#try-the-tools). Remove the connection with `codex mcp remove virustotal` and restart. Reuse the same active VTAI credential if you reconnect.
 
-With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The new 0.8 model workflow is pending validation.
+With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The three-tool 0.8 workflow was exercised in [staging and a production candidate](#version-08-submission-evidence); public rollout remains pending.
 
 For persistent authorization of the HTTP submission tool, use the [per-tool approval setting](#codex-approval-for-submission-tools) below.
 
@@ -145,8 +145,9 @@ The setting does not restrict which file arguments are authorized or enlarge VTA
 rights. [Official MCP settings](https://learn.chatgpt.com/docs/extend/mcp),
 [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
 
-This documents the per-tool configuration. Its real 0.8 Codex workflow remains
-pending in the [submission evidence](#version-08-submission-evidence).
+Both per-tool approval fragments were exercised with Codex CLI 0.153.4 in the
+[0.8 staging and production-candidate workflows](#version-08-submission-evidence),
+without per-call approval prompts. Public rollout remains separate and pending.
 
 ## Gemini CLI
 
@@ -260,9 +261,9 @@ repository. Each public release requires its own verified CI run and checksums.
 
 | Client | Local stdio: eight tools | HTTP: seven tools |
 |---|---|---|
-| Antigravity CLI (`agy`) | Contract/configuration documented; native validation pending | Not supported by the verified credential-reference setup in 1.1.27; use stdio |
-| Claude Code | Contract/configuration documented; native validation pending | Contract/configuration documented; native validation pending |
-| Codex CLI | Contract/configuration documented; native validation pending | Contract/configuration documented; native validation pending |
+| Antigravity CLI (`agy`) | Three-tool cycle observed in staging and production candidate | Not supported by the verified credential-reference setup in 1.1.27; use stdio |
+| Claude Code | Three-tool cycle observed in staging and production candidate | Three-tool cycle observed in both environments; analysis pending in these sessions |
+| Codex CLI | Three-tool cycle observed in staging and production candidate | Three-tool cycle observed in staging and production candidate |
 
 Publication, installation and deployment of 0.8 require separate acceptance.
 The new tools do not extend the guard's scope or establish that an analyzed file
@@ -270,31 +271,46 @@ is safe. The historical sections below retain their original 0.7 evidence.
 
 ### Version 0.8 submission evidence
 
-**Pending:** no completed native submission workflow or production acceptance for
-this cycle is recorded here yet. The following rows define the evidence to record;
-they are not successful sessions. Configuration, discovery, package installation
-and a successful process exit do not establish the complete cycle.
+On 2026-09-08, five native-client sessions exercised the production candidate with
+**zero public traffic**. Each made exactly three MCP calls: its submission tool,
+`get_submission` for the same SHA-256/account, then `get_analysis` for that registered
+ID. There were no repeated submission calls in these sessions. The two innocuous
+public fixtures are labelled A and B. **Public rollout remains pending.**
 
-Each workflow calls its submission tool, reads `get_submission` for the same
-SHA-256/account, and reads the actual registered ID with `get_analysis`. A pending
-analysis remains pending; repeated analysis reads have an explicit finite budget.
-
-| Client | Transport | Submission tool | Accepted observation |
+| Client | Transport | Submission tool | Selected analysis observed in the candidate session |
 |---|---|---|---|
-| Antigravity CLI (`agy`) | Local stdio | `submit_local_file` | Pending |
-| Claude Code | Local stdio | `submit_local_file` | Pending |
-| Claude Code | HTTP | `submit_file` | Pending |
-| Codex CLI | Local stdio | `submit_local_file` | Pending |
-| Codex CLI | HTTP | `submit_file` | Pending |
+| Antigravity CLI (`agy`) 1.1.27 | Local stdio | `submit_local_file` | A receipt recovered; analysis pending |
+| Claude Code 2.1.263 | Local stdio | `submit_local_file` | Same A receipt; analysis pending |
+| Claude Code 2.1.263 | HTTP | `submit_file` | B receipt recovered; analysis pending |
+| Codex CLI 0.153.4 | Local stdio | `submit_local_file` | Same A receipt; analysis completed |
+| Codex CLI 0.153.4 | HTTP | `submit_file` | Same B receipt; analysis pending |
 
-Staging, a route to a production candidate and the ordinary public endpoint are
-separate scopes. Reusing a receipt across clients does not demonstrate a new
-upload for each client. Completion refers to the selected analysis; total engine
-entries include unsupported, failed and timed-out outcomes.
+Both transports reached the candidate through a loopback proxy to its dedicated
+route; these were not ordinary public HTTP connections. Stdio protocol versions
+were 2026-07-28 for Agy, 2025-11-25 for Claude and 2025-06-18 for Codex. HTTP wire
+negotiation was not captured; discovery used a separate SDK connection. Agy reported
+`gemini-3.8-flash-high`; Claude reported `claude-opus-5` / `claude-opus-5[1m]` through
+its native subscription. Codex requested `gpt-6-astra` / `xhigh`; its events did not
+independently report the effective model. These observations do not extend the
+execution guard or validate calls to every exposed tool.
 
-The [analysis guide](analysis.md#autonomous-mcp-workflow) defines recovery behavior.
-The existing 25-call record below remains evidence for the read-only 0.7 tools;
-it is not replaced or extended by these pending rows.
+Three later API reads, completed at 09:34:13 UTC, established both selected analyses
+as completed without submitting again. Their IDs and hashes matched the native
+receipts; A's final source, date, statistics and results also matched Codex's
+completed result. A had 75 engine entries: 50 undetected, 14 unsupported, 10 timeouts
+and one failure. B had 75: 38 undetected, 13 unsupported, 10 timeouts and 14 failures.
+These are total entries, not 75 successful engine analyses. Later completion does
+not turn a client's pending result into a completed observation; receipt recovery
+does not demonstrate another upload. Zero detections do not establish safety.
+
+Earlier **staging** evidence used five separate sessions and 15 MCP calls through a
+staging proxy. Agy and Claude/Codex stdio observed staging fixture A completed;
+Claude HTTP observed B pending, and Codex HTTP later observed B completed, matching
+a separate API read. Each had 76 engine entries: A had 61 undetected, 14 unsupported
+and one failure; B had 62 undetected and 14 unsupported. Staging fixtures are
+separate from the production-candidate fixtures. Agy also read its own generated
+MCP schema/result files. The [recovery guide](analysis.md#autonomous-mcp-workflow)
+and historical read-only 0.7 record retain their separate scope.
 
 ### Historical 0.7 native-client coverage
 
