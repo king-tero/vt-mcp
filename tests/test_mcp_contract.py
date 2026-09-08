@@ -32,6 +32,9 @@ async def test_tool_surface_and_structured_result(file_hash, report, indicator_r
             "get_domain_report",
             "get_ip_report",
             "get_analysis",
+            "get_submission",
+            "submit_file",
+            "submit_local_file",
         }
         inputs = {
             "get_file_report": ("hash", file_hash, "files"),
@@ -40,6 +43,9 @@ async def test_tool_surface_and_structured_result(file_hash, report, indicator_r
             "get_ip_report": ("ip", "192.0.2.1", "ip_addresses"),
         }
         for tool in tools:
+            if tool.name in {"get_submission", "submit_file", "submit_local_file"}:
+                # Submission behavior has its own durable-state/byte-integrity tests.
+                continue
             if tool.name == "get_analysis":
                 # Analysis-specific calls are exercised in test_analysis_mcp.py.
                 assert set(tool.input_schema["properties"]) == {"analysis_id"}

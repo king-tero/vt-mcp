@@ -1,5 +1,6 @@
 """Observable CLI behavior with generated text and a loopback backend only."""
 
+import base64
 import hashlib
 import json
 import os
@@ -291,9 +292,42 @@ async def test_new_analysis_tool_over_real_stdio_process(fixture):
     )
     async with Client(parameters, read_timeout_seconds=15) as client:
         tools = (await client.list_tools()).tools
-        assert len(tools) == 5
+        assert len(tools) == 8
         result = await client.call_tool("get_analysis", {"analysis_id": ANALYSIS_ID})
     assert not result.is_error and result.structured_content == analysis_response()
     assert json.loads(result.content[0].text) == result.structured_content
     assert TOKEN not in result.content[0].text
     assert len(fixture.state.gets) == 1 and fixture.state.posts == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("first", ["submit_file", "submit_local_file"])
+async def test_autonomous_submission_and_recovery_over_real_stdio(fixture, first):
+    # State uses the standard XDG root; no credential or state argument enters MCP.
+    fixture.state_dir = fixture.cwd / "state" / "vt-mcp"
+    environment = {**fixture.environment, "XDG_STATE_HOME": str(fixture.cwd / "state")}
+    parameters = StdioServerParameters(
+        command=sys.executable, args=["-I", "-m", "vt_mcp"], env=environment
+    )
+    arguments = {
+        "submit_file": {"sha256": SHA, "content_base64": base64.b64encode(BODY).decode()},
+        "submit_local_file": {"path": str(fixture.source)},
+    }
+    async with Client(parameters, read_timeout_seconds=15) as client:
+        result = await client.call_tool(first, arguments[first])
+        assert not result.is_error and result.structured_content == submission_response()
+        recovered = await client.call_tool("get_submission", {"sha256": SHA})
+        assert recovered.structured_content == result.structured_content
+        other = "submit_local_file" if first == "submit_file" else "submit_file"
+        repeated = await client.call_tool(other, arguments[other])
+        assert not repeated.is_error and repeated.structured_content == result.structured_content
+        fixture.state.completed = True
+        final = await client.call_tool("get_analysis", {"analysis_id": ANALYSIS_ID})
+        assert not final.is_error and final.structured_content == analysis_response(completed=True)
+        for item in (result, recovered, repeated, final):
+            assert TOKEN not in item.content[0].text
+            assert str(fixture.source) not in item.content[0].text
+            assert json.loads(item.content[0].text) == item.structured_content
+    assert fixture.state.posts == [{"sha256": SHA, "body": BODY, "path_in_headers": False}]
+    assert len(fixture.state.gets) == 3
+    assert list(fixture.temporary.iterdir()) == []

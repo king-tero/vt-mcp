@@ -1,16 +1,25 @@
 """Pure, bounded presentation of actor-owned submissions and selected analyses."""
 
+import base64
+import binascii
+import hashlib
 import json
 import re
 import unicodedata
+from collections.abc import Generator
+from contextlib import closing
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Protocol
 
+import anyio
 from pydantic import BaseModel, ConfigDict, Field
 
 from vt_mcp.reports import MAX_RESPONSE_BYTES, VTAIError, format_file_report, validate_report_values
 
 MAX_SUBMISSION_BYTES = 32_000_000
+MAX_INLINE_SUBMISSION_BYTES = 24_000_000
+MAX_INLINE_BASE64_CHARS = 4 * ((MAX_INLINE_SUBMISSION_BYTES + 2) // 3)
+_BASE64_BLOCK_CHARS = 64 * 1024
 MAX_ANALYSIS_ID_BYTES = 1024
 SHA256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Count = Annotated[int, Field(ge=0)]
@@ -18,6 +27,28 @@ _ERRORS = {
     "invalid_input": (422, "Invalid analysis or submission input", False),
     "consent_required": (422, "Explicit standard submission consent is required", False),
     "body_too_large": (413, "Submission exceeds 32000000 bytes", False),
+    "inline_too_large": (
+        413,
+        "Inline submission exceeds 24000000 bytes. Use a local file or the VTAI binary "
+        "submission channel for files up to 32000000 bytes.",
+        False,
+    ),
+    "invalid_file": (
+        422,
+        "Provide a readable regular file within the submission size limit.",
+        False,
+    ),
+    "snapshot_changed": (
+        409,
+        "The source changed while copying. No submission was started.",
+        False,
+    ),
+    "snapshot_timeout": (504, "The local copy exceeded its preparation budget.", False),
+    "local_state_unavailable": (
+        503,
+        "Durable private recovery state could not be confirmed. No POST was started.",
+        False,
+    ),
     "hash_mismatch": (422, "Submission bytes do not match the declared SHA256", False),
     "receipt_conflict": (409, "The existing submission receipt is incompatible", False),
     "not_found": (404, "No registered submission or analysis found", False),
@@ -38,6 +69,12 @@ _ERRORS = {
 
 class AnalysisReader(Protocol):
     async def get_analysis(self, analysis_id: str) -> dict[str, Any]: ...
+
+
+class SubmissionReader(Protocol):
+    async def submit_file(self, sha256: str, content_base64: str) -> dict[str, Any]: ...
+
+    async def get_submission(self, sha256: str) -> dict[str, Any]: ...
 
 
 class AnalysisError(VTAIError):
@@ -95,6 +132,63 @@ def validate_sha256(value: Any) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value):
         raise AnalysisError("invalid_input")
     return value
+
+
+def _decode_submission_blocks(sha256: str, content_base64: str) -> Generator[bytes, None, None]:
+    """Share validation/hash semantics without an uninterruptible whole-input decode."""
+    validate_sha256(sha256)
+    if not isinstance(content_base64, str):
+        raise AnalysisError("invalid_input")
+    if len(content_base64) > MAX_INLINE_BASE64_CHARS:
+        raise AnalysisError("inline_too_large")
+    if len(content_base64) % 4:
+        raise AnalysisError("invalid_input")
+    digest, size = hashlib.sha256(), 0
+    for offset in range(0, len(content_base64), _BASE64_BLOCK_CHARS):
+        block = content_base64[offset : offset + _BASE64_BLOCK_CHARS]
+        if offset + len(block) < len(content_base64) and "=" in block:
+            raise AnalysisError("invalid_input")
+        try:
+            decoded = base64.b64decode(block, validate=True)
+        except (ValueError, binascii.Error):
+            raise AnalysisError("invalid_input") from None
+        size += len(decoded)
+        if size > MAX_INLINE_SUBMISSION_BYTES:
+            raise AnalysisError("inline_too_large")
+        # Check canonical length/padding bits per quartet-aligned block. Only
+        # the final block can contain padding; concatenated padded inputs fail.
+        if len(block) != 4 * ((len(decoded) + 2) // 3) or (
+            decoded
+            and base64.b64encode(decoded[-(len(decoded) % 3 or 3) :]).decode("ascii") != block[-4:]
+        ):
+            raise AnalysisError("invalid_input")
+        digest.update(decoded)
+        yield decoded
+    if digest.hexdigest() != sha256:
+        raise AnalysisError("hash_mismatch")
+
+
+def decode_submission(sha256: str, content_base64: str) -> bytes:
+    """Synchronous canonical base64/SHA256 validation, retained for existing callers."""
+    return b"".join(_decode_submission_blocks(sha256, content_base64))
+
+
+async def decode_submission_async(sha256: str, content_base64: str) -> bytes:
+    """Decode under the caller's deadline/capacity, with no detached thread.
+
+    Each decode/hash step handles at most 64 KiB of ASCII base64. Cancellation
+    checkpoints precede work, separate blocks, and follow the bounded final
+    bytes assembly. No partial body is returned after cancellation or failure.
+    """
+    await anyio.lowlevel.checkpoint()
+    parts = []
+    with closing(_decode_submission_blocks(sha256, content_base64)) as blocks:
+        for part in blocks:
+            parts.append(part)
+            await anyio.lowlevel.checkpoint()
+    result = b"".join(parts)
+    await anyio.lowlevel.checkpoint()
+    return result
 
 
 def _text(value: str, limit: int) -> None:

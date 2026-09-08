@@ -1,11 +1,11 @@
 # Query from a Python application
 
-The [lookup example](lookup.py) launches `vt-mcp` as a subprocess using the official MCP Python SDK `2.1.1`. It calls the same four tools as an assistant, without a provider-specific SDK or model account.
+The [lookup example](lookup.py) launches `vt-mcp` as a subprocess using the official MCP Python SDK `2.1.1`. It exercises the four existing report tools without a provider-specific SDK or model account; it does not submit files. Version 0.8 also exposes submission/recovery tools described in the [analysis guide](../docs/analysis.md).
 
 After downloading and verifying the release wheel as described in the main README, run from the repository directory:
 
 ```bash
-uv run --no-project --python 3.12 --with /absolute/path/to/vt_mcp-0.7.0-py3-none-any.whl \
+uv run --no-project --python 3.12 --with /absolute/path/to/vt_mcp-0.8.0-py3-none-any.whl \
   examples/lookup.py domain example.com
 ```
 

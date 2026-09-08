@@ -9,7 +9,7 @@ import stat
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,7 +58,7 @@ class Snapshot:
 
 
 @contextmanager
-def copy_snapshot(path: str) -> Iterator[Snapshot]:
+def copy_snapshot(path: str, *, checkpoint: Callable[[], None] | None = None) -> Iterator[Snapshot]:
     source = None
     prepared = False
     try:
@@ -71,6 +71,8 @@ def copy_snapshot(path: str) -> Iterator[Snapshot]:
             digest, size = hashlib.sha256(), 0
             deadline = time.monotonic() + COPY_SECONDS
             while True:
+                if checkpoint is not None:
+                    checkpoint()
                 if time.monotonic() >= deadline:
                     raise CLIError("snapshot_timeout")
                 part = os.read(source, min(65536, MAX_SUBMISSION_BYTES + 1 - size))
@@ -92,6 +94,8 @@ def copy_snapshot(path: str) -> Iterator[Snapshot]:
             copied.seek(0)
             if time.monotonic() >= deadline:
                 raise CLIError("snapshot_timeout")
+            if checkpoint is not None:
+                checkpoint()
             os.close(source)
             source = None
             prepared = True
