@@ -294,6 +294,40 @@ async def test_cancelled_copy_runs_off_event_loop_and_closes_its_descriptor(loca
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("external", [True, False])
+async def test_inline_decode_cancel_or_deadline_stops_before_state_and_http(
+    local, monkeypatch, external
+):
+    _, state = local
+    entered, stopped = anyio.Event(), anyio.Event()
+
+    async def blocked_decode(*args):
+        entered.set()
+        try:
+            await anyio.sleep_forever()
+        finally:
+            stopped.set()
+
+    monkeypatch.setattr(submissions, "decode_submission_async", blocked_decode)
+    if not external:
+        monkeypatch.setattr(submissions, "LOCAL_SUBMISSION_SECONDS", 0.03)
+    async with AnalysisClient(
+        Settings(TOKEN), transport=httpx.MockTransport(lambda _: pytest.fail("Unexpected HTTP"))
+    ) as client:
+        service = LocalSubmissions(client, directory=state)
+        with anyio.fail_after(0.2):
+            if external:
+                with anyio.move_on_after(0.03) as cancellation:
+                    await service.submit_file(SHA, encoded())
+                assert cancellation.cancelled_caught
+            else:
+                with pytest.raises(AnalysisError) as error:
+                    await service.submit_file(SHA, encoded())
+                assert error.value.error["code"] == "timeout"
+        assert entered.is_set() and stopped.is_set() and not state.exists()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("external", [True, False])
 async def test_cancel_or_deadline_after_dispatch_closes_copy_and_preserves_reference(
     local, monkeypatch, external
 ):
