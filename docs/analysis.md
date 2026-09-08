@@ -19,12 +19,15 @@ do not upload or request a rescan.
 | `get_submission(sha256)` | Read the existing receipt for this VTAI account and hash, without uploading again. |
 | `get_analysis(analysis_id)` | Read one registered analysis; retain its selected ID, SHA-256, status, date and engine evidence. |
 
-The submission tools operate in **standard mode**. They have no `consent` Boolean,
-confirmation argument or per-call human prompt. Authorize the relevant files and
-standard sharing when assigning the agent's task and configuring its specific host
-permissions; existing host deny/ask rules still apply. The MCP tool does not bypass
-host permissions or confer broader VTAI rights. Do not grant access to files that
-the agent is not authorized to disclose.
+The submission tools operate in **standard mode**. VT-MCP adds no `consent` Boolean,
+confirmation argument or per-call human prompt. The client owner configures host
+authorization separately: its policy can permit the assigned operation without
+another prompt, ask, or deny it. Authorize the relevant files and standard sharing
+when assigning the task and configuring the specific host grants. See the
+[client permissions](clients.md), including
+[Codex's per-tool approval](clients.md#codex-approval-for-submission-tools).
+The MCP tool does not bypass host controls or confer broader VTAI rights. Do not
+grant access to files that the agent is not authorized to disclose.
 
 Standard submission is not confidential: content is sent through VTAI to VirusTotal
 and may be available to its community and security partners. Inline base64 content

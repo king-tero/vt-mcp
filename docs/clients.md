@@ -4,6 +4,8 @@ These instructions cover **vt-mcp 0.8.0**: seven common tools over remote HTTP o
 
 Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **Validation of the new 0.8 tools is pending.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
 
+VT-MCP provides the submission capability; the client owner configures whether the host may use it without asking again. Agy, Claude Code and Codex have separate authorization policies. A tool appearing in discovery is not an approval, and a host prompt or denial is not a new VT-MCP consent requirement. The client-specific grants below preserve that distinction.
+
 Start with [Antigravity CLI (`agy`)](#antigravity-cli-agy), [Claude Code](#claude-code), or [Codex CLI](#codex-cli--remote-http). Other client guides follow those three.
 
 ## Antigravity CLI (`agy`)
@@ -100,6 +102,8 @@ Restart and inspect `/mcp`, then [check the tools](#try-the-tools). Remove the c
 
 With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The new 0.8 model workflow is pending validation.
 
+For persistent authorization of the HTTP submission tool, use the [per-tool approval setting](#codex-approval-for-submission-tools) below.
+
 ## Codex CLI — local stdio
 
 Install the verified wheel first. Use an absolute executable path if `vt-mcp` is absent from the client's PATH. The command passes a credential-file path, not its contents:
@@ -111,6 +115,38 @@ codex mcp add virustotal --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" -- v
 After adding the local server, set `tool_timeout_sec = 180` under `[mcp_servers.virustotal]` in `~/.codex/config.toml`, or use the [stdio configuration fragment](../examples/client-configs/codex-stdio.toml). This covers the 150-second local submission budget; Codex otherwise defaults to 60 seconds per tool. [Official timeout setting](https://learn.chatgpt.com/docs/extend/mcp).
 
 Local 0.8 discovery should additionally include `submit_local_file`, for eight tools. The path belongs to the local vt-mcp process; its optional expected SHA-256 must match the copied bytes. Allow this specific tool only for authorized standard-sharing tasks. Restart Codex and use `/mcp` to inspect the integration. Remove it with `codex mcp remove virustotal`. The command syntax was checked against Codex CLI `0.153.4` and [official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp) on 2026-09-06.
+
+### Codex approval for submission tools
+
+For tasks you authorize for standard sharing, merge the matching table into your
+existing `~/.codex/config.toml`. Use your configured server name in place of
+`virustotal` if different. Preserve the other tools, server defaults and host
+settings; these fragments set persistent approval for one submission tool only.
+
+For local stdio:
+
+```toml
+[mcp_servers.virustotal.tools.submit_local_file]
+approval_mode = "approve"
+```
+
+For remote HTTP:
+
+```toml
+[mcp_servers.virustotal.tools.submit_file]
+approval_mode = "approve"
+```
+
+`enabled_tools` is a separate allowlist of exposed names, not an approval grant.
+If you use it, the intended submission tool, `get_submission` and `get_analysis`
+must be available for the full cycle; `disabled_tools` still takes precedence.
+Do not replace the server-wide approval default or disable unrelated host controls.
+The setting does not restrict which file arguments are authorized or enlarge VTAI
+rights. [Official MCP settings](https://learn.chatgpt.com/docs/extend/mcp),
+[configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+This documents the per-tool configuration. Its real 0.8 Codex workflow remains
+pending in the [submission evidence](#version-08-submission-evidence).
 
 ## Gemini CLI
 
