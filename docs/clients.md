@@ -72,6 +72,7 @@ Merge this entry into `~/.codex/config.toml`, preserving other settings. Replace
 
 ```toml
 [mcp_servers.virustotal]
+tool_timeout_sec = 180
 url = "https://ai.virustotal.com/mcp"
 
 [mcp_servers.virustotal.env_http_headers]
@@ -106,6 +107,8 @@ Install the verified wheel first. Use an absolute executable path if `vt-mcp` is
 ```bash
 codex mcp add virustotal --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" -- vt-mcp
 ```
+
+After adding the local server, set `tool_timeout_sec = 180` under `[mcp_servers.virustotal]` in `~/.codex/config.toml`, or use the [stdio configuration fragment](../examples/client-configs/codex-stdio.toml). This covers the 150-second local submission budget; Codex otherwise defaults to 60 seconds per tool. [Official timeout setting](https://learn.chatgpt.com/docs/extend/mcp).
 
 Local 0.8 discovery should additionally include `submit_local_file`, for eight tools. The path belongs to the local vt-mcp process; its optional expected SHA-256 must match the copied bytes. Allow this specific tool only for authorized standard-sharing tasks. Restart Codex and use `/mcp` to inspect the integration. Remove it with `codex mcp remove virustotal`. The command syntax was checked against Codex CLI `0.153.4` and [official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp) on 2026-09-06.
 

@@ -9,7 +9,7 @@ import anyio
 
 from vt_mcp.analyses import (
     AnalysisError,
-    decode_submission,
+    decode_submission_async,
     format_submission_response,
     unknown_submission,
     validate_sha256,
@@ -96,7 +96,7 @@ class LocalSubmissions:
     async def submit_file(self, sha256: str, content_base64: str) -> dict:
         try:
             with anyio.fail_after(LOCAL_SUBMISSION_SECONDS) as budget:
-                body = await anyio.to_thread.run_sync(decode_submission, sha256, content_base64)
+                body = await decode_submission_async(sha256, content_base64)
                 await anyio.lowlevel.checkpoint()
                 with io.BytesIO(body) as copied:
                     return await self._submit(Snapshot(copied, sha256, len(body)), budget)
