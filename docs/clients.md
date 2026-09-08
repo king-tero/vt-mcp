@@ -230,7 +230,35 @@ repository. Each public release requires its own verified CI run and checksums.
 
 Publication, installation and deployment of 0.8 require separate acceptance.
 The new tools do not extend the guard's scope or establish that an analyzed file
-is safe. The rows below retain their original 0.7 evidence.
+is safe. The historical sections below retain their original 0.7 evidence.
+
+### Version 0.8 submission evidence
+
+**Pending:** no completed native submission workflow or production acceptance for
+this cycle is recorded here yet. The following rows define the evidence to record;
+they are not successful sessions. Configuration, discovery, package installation
+and a successful process exit do not establish the complete cycle.
+
+Each workflow calls its submission tool, reads `get_submission` for the same
+SHA-256/account, and reads the actual registered ID with `get_analysis`. A pending
+analysis remains pending; repeated analysis reads have an explicit finite budget.
+
+| Client | Transport | Submission tool | Accepted observation |
+|---|---|---|---|
+| Antigravity CLI (`agy`) | Local stdio | `submit_local_file` | Pending |
+| Claude Code | Local stdio | `submit_local_file` | Pending |
+| Claude Code | HTTP | `submit_file` | Pending |
+| Codex CLI | Local stdio | `submit_local_file` | Pending |
+| Codex CLI | HTTP | `submit_file` | Pending |
+
+Staging, a route to a production candidate and the ordinary public endpoint are
+separate scopes. Reusing a receipt across clients does not demonstrate a new
+upload for each client. Completion refers to the selected analysis; total engine
+entries include unsupported, failed and timed-out outcomes.
+
+The [analysis guide](analysis.md#autonomous-mcp-workflow) defines recovery behavior.
+The existing 25-call record below remains evidence for the read-only 0.7 tools;
+it is not replaced or extended by these pending rows.
 
 ### Historical 0.7 native-client coverage
 
