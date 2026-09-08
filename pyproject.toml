@@ -47,6 +47,9 @@ addopts = "-q"
 
 [tool.uv.build-backend]
 source-include = [
+    "server.json",
+    "glama.json",
+    "docs/discovery.md",
     "docs/access.md",
     "docs/clients.md",
     "docs/client-validation-2026-09-07.md",
