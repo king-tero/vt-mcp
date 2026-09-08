@@ -19,12 +19,15 @@ do not upload or request a rescan.
 | `get_submission(sha256)` | Read the existing receipt for this VTAI account and hash, without uploading again. |
 | `get_analysis(analysis_id)` | Read one registered analysis; retain its selected ID, SHA-256, status, date and engine evidence. |
 
-The submission tools operate in **standard mode**. They have no `consent` Boolean,
-confirmation argument or per-call human prompt. Authorize the relevant files and
-standard sharing when assigning the agent's task and configuring its specific host
-permissions; existing host deny/ask rules still apply. The MCP tool does not bypass
-host permissions or confer broader VTAI rights. Do not grant access to files that
-the agent is not authorized to disclose.
+The submission tools operate in **standard mode**. VT-MCP adds no `consent` Boolean,
+confirmation argument or per-call human prompt. The client owner configures host
+authorization separately: its policy can permit the assigned operation without
+another prompt, ask, or deny it. Authorize the relevant files and standard sharing
+when assigning the task and configuring the specific host grants. See the
+[client permissions](clients.md), including
+[Codex's per-tool approval](clients.md#codex-approval-for-submission-tools).
+The MCP tool does not bypass host controls or confer broader VTAI rights. Do not
+grant access to files that the agent is not authorized to disclose.
 
 Standard submission is not confidential: content is sent through VTAI to VirusTotal
 and may be available to its community and security partners. Inline base64 content
@@ -35,8 +38,9 @@ still goes to VTAI and VirusTotal. It does not make the upload private.
 For a local stdio agent, a task can be:
 
 > Submit `/absolute/path/authorized-public-file.txt` using `submit_local_file`.
-> Use `get_submission` to recover an uncertain result without sending the file
-> again, then read the returned ID with `get_analysis`. Report the actual status,
+> Pass the expected SHA-256 if it was supplied with this task. Call `get_submission`
+> for that same hash and account, then read its registered ID with `get_analysis`.
+> If sending is uncertain, recover the receipt without submitting again. Report the actual status,
 > source, analysis date and engine coverage; completion is not a safety verdict.
 
 A remote host instead provides `sha256` and `content_base64` to `submit_file`.
@@ -58,15 +62,43 @@ remain unknown permanently. A missing receipt is not evidence that an earlier
 ambiguous upload never happened, and a later file report cannot replace the
 selected analysis. Cancellation does not withdraw bytes already accepted.
 
+Use the response to choose the next read:
+
+| Submission or receipt outcome | Next step |
+|---|---|
+| `submitted` with an analysis ID | Read `get_submission` for the same SHA-256/account when recovering the receipt; use its registered ID with `get_analysis`. |
+| `submission_unknown`, lost response or cancellation | Read only `get_submission` for recovery. If no registered ID is available, stop the analysis cycle without another submission. |
+| `exists` | Report the existing file report as such. Do not invent a new analysis ID or completion. |
+
 `submitted` means VTAI durably registered an analysis ID, not completion. Read that
 ID with `get_analysis`; each call performs one bounded read and consumes the
 shared query allowance. The agent can make later reads according to the returned
 status and retry delay, within a finite task budget. No MCP call waits indefinitely
 or invents completion, and no credential is a tool argument.
 
+### MCP recovery state
+
+Both submission tools in the local stdio server reuse the CLI's
+[durable reference](#cli-durable-recovery-before-sending), before sending a POST.
+The state belongs to the vt-mcp process and is shared by clients using the same
+service, credential and state directory. Configure `XDG_STATE_HOME` on that process
+to choose its state root; neither MCP tool has a `state-dir` argument. Preserve the
+directory after interruption. An existing reference permits only receipt recovery,
+including when the original dispatch or local acknowledgement is uncertain.
+
+Remote HTTP uses VTAI's per-account receipt; it does not create this local reference
+on the assistant's machine. Keep the SHA-256 and use `get_submission` with the same
+account. Do not change accounts or delete local state to work around an unknown
+outcome. A repeated successful receipt read is recovery, not evidence of another
+upload or scan.
+
 The [client guide](clients.md) lists exact grants in Agy → Claude Code → Codex order.
-Version 0.8 native-client and deployment validation is pending; historical 0.7
-read-only sessions do not establish that the new submission tools were exercised.
+The [0.8 submission evidence](clients.md#version-08-submission-evidence) records
+five native-client cycles in staging and five against a production candidate,
+preserving pending and completed results. Later API reads confirmed both candidate
+analyses completed. The public rollout and separate direct SDK checks are now
+accepted; the native sessions retain their candidate-route scope, and the
+historical 0.7 read-only sessions retain theirs.
 
 <a id="authorize-one-copy"></a>
 
@@ -276,7 +308,15 @@ and the binary CLI path accept at most 32,000,000. Transport limits can reject a
 request before tool dispatch. Inputs and responses remain bounded, and file bytes
 are never returned as a tool result.
 
-The compatible CLI POST budget is 130 seconds, separate from existing report-tool timeouts.
+Local stdio applies a **150-second operation budget** to either submission tool,
+covering preparation, durable state and dispatch or receipt recovery. Configure the
+MCP host's tool deadline with room for that operation and cleanup; the
+[Codex examples](clients.md#codex-cli--local-stdio) use 180 seconds. A shorter host
+deadline can interrupt the caller without proving that the service did not accept
+the file. Recover by receipt instead of retrying submission.
+
+The underlying client POST budget is 130 seconds, including for the compatible
+CLI, separate from existing report-tool timeouts.
 Each analysis or receipt GET is bounded to 35 seconds; a positive `--wait` further
 bounds the whole polling loop. Responses are capped at 256 KiB, schema-validated
 and minimized; raw provider bodies and exception messages are not reflected.
@@ -308,8 +348,10 @@ through the [access workflow](access.md).
 
 ## Validation scope
 
-The autonomous 0.8 MCP workflow is pending independent and native-client
-validation. The following evidence remains scoped to earlier releases.
+The autonomous 0.8 MCP workflow has its own
+[staging and candidate evidence record](clients.md#version-08-submission-evidence), separating
+tool invocation, new dispatch, receipt recovery and selected-analysis completion.
+The following evidence remains scoped to earlier releases.
 
 [Service validation](clients.md#service-and-workflow-validation) records real
 staging recovery and a separate Codex public HTTP read of an already-submitted
