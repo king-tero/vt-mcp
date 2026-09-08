@@ -14,10 +14,12 @@ Version **0.8.0** adds autonomous MCP submission and receipt recovery over the e
 
 | Connection | Client configuration | Local requirements |
 |---|---|---|
-| Remote HTTP | `https://ai.virustotal.com/mcp`, with `x-apikey` read from the host environment | An MCP client supporting that header mapping; no vt-mcp or Python installation |
+| Remote HTTP | `https://ai.virustotal.com/mcp`, with `x-apikey` or the [VTAI 0.8.1 Bearer alternative](docs/access.md#choose-one-authentication-header) read from the host environment | An MCP client supporting the selected credential mapping; no vt-mcp or Python installation |
 | Local stdio | Start `vt-mcp` with `VTAI_TOKEN_FILE` pointing to protected storage | Python 3.12+ and the verified wheel |
 
-Both routes use VTAI's rights and quotas. VTAI authenticates **`x-apikey`**, without a Bearer or OAuth login flow. Free access is neither anonymous nor unlimited; model-provider charges are separate.
+Both routes use VTAI's rights and quotas. VTAI 0.8.1 accepts the same VTAI token through **either `x-apikey` or `Authorization: Bearer`**; send only one. This is static token authentication, not OAuth, and needs no vt-mcp package upgrade. Existing `x-apikey` configurations and the local stdio wrapper keep working. Free access is neither anonymous nor unlimited; model-provider charges are separate.
+
+Claude Code and Codex have each used Bearer for one report query in staging and one against a production candidate, through QA proxies. See the [scope and deployment status](docs/clients.md#bearer-authentication-validation); these were not ordinary public-direct sessions. Earlier accepted HTTP workflows used `x-apikey`.
 
 | Client | Setup guide |
 |---|---|
