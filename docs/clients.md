@@ -2,7 +2,7 @@
 
 These instructions cover **vt-mcp 0.8.0**: seven common tools over remote HTTP or local stdio, and an eighth local-file tool over stdio. HTTP needs a compatible client and VTAI token, with no local Python installation; stdio needs the verified wheel. Four report tools and `get_analysis` remain read-only. `submit_file(sha256, content_base64)` submits up to 24,000,000 decoded bytes; `get_submission(sha256)` recovers the account’s receipt. Stdio additionally offers `submit_local_file(path, expected_sha256=None)` up to 32,000,000 bytes. See the [submission and recovery guide](analysis.md).
 
-Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **The 0.8 submission cycle has been exercised in staging and against a production candidate; public rollout remains pending.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
+Submission tools have no per-call human confirmation or consent argument. Configure the specific host permissions for files you authorize for standard sharing; host permissions still apply. **The 0.8 submission cycle has been exercised in staging and against a production candidate. The public rollout is accepted, with separate direct SDK checks.** The [historical native-client validation](client-validation-2026-09-07.md) covers five read-only tools in 0.7, not autonomous submission. Set up protected access using the [access guide](access.md), or the [README](../README.md#connect-your-client).
 
 VT-MCP provides the submission capability; the client owner configures whether the host may use it without asking again. Agy, Claude Code and Codex have separate authorization policies. A tool appearing in discovery is not an approval, and a host prompt or denial is not a new VT-MCP consent requirement. The client-specific grants below preserve that distinction.
 
@@ -64,7 +64,7 @@ For an authorized 0.8 workflow, use these exact common grants as the comma-separ
 mcp__virustotal__get_file_report,mcp__virustotal__get_url_report,mcp__virustotal__get_domain_report,mcp__virustotal__get_ip_report,mcp__virustotal__get_analysis,mcp__virustotal__get_submission,mcp__virustotal__submit_file
 ```
 
-For **stdio only**, append `mcp__virustotal__submit_local_file`. The seven HTTP tools do not read a local path. Keep `--permission-mode dontAsk`, `--tools ""` and the explicit MCP configuration if using the previously documented unattended pattern; a denied tool is a permission failure, not successful completion. Do not replace specific grants with a general permission bypass. The three-tool 0.8 submission cycle ran with specific grants through both transports in [staging and a production candidate](#version-08-submission-evidence); public rollout remains pending. The same per-run configuration flags accept the HTTP fragment. In the historical v0.7.0 sessions, CLI 2.1.263 completed all five read-only tools through stdio and public HTTP using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
+For **stdio only**, append `mcp__virustotal__submit_local_file`. The seven HTTP tools do not read a local path. Keep `--permission-mode dontAsk`, `--tools ""` and the explicit MCP configuration if using the previously documented unattended pattern; a denied tool is a permission failure, not successful completion. Do not replace specific grants with a general permission bypass. The three-tool 0.8 submission cycle ran with specific grants through both transports in [staging and a production candidate](#version-08-submission-evidence). The accepted public rollout has separate direct SDK evidence below. The same per-run configuration flags accept the HTTP fragment. In the historical v0.7.0 sessions, CLI 2.1.263 completed all five read-only tools through stdio and public HTTP using a native Claude subscription. The runs used a terminal PTY; this observation does not establish that PTY is required. See the [session evidence](client-validation-2026-09-07.md).
 
 ## Codex CLI — remote HTTP
 
@@ -100,7 +100,7 @@ VTAI accepts only `x-apikey`. Do not replace this with `--bearer-token-env-var`,
 
 Restart and inspect `/mcp`, then [check the tools](#try-the-tools). Remove the connection with `codex mcp remove virustotal` and restart. Reuse the same active VTAI credential if you reconnect.
 
-With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The three-tool 0.8 workflow was exercised in [staging and a production candidate](#version-08-submission-evidence); public rollout remains pending.
+With the 0.8 service, discovery should list the four reports plus `get_analysis`, `get_submission` and `submit_file`. Authorize those specific MCP operations through your normal host policy for the assigned task; the server does not add a per-call confirmation. Do not disable unrelated host safeguards. `submit_local_file` is absent over HTTP. The three-tool 0.8 workflow was exercised in [staging and a production candidate](#version-08-submission-evidence). The accepted public rollout has separate direct SDK evidence below.
 
 For persistent authorization of the HTTP submission tool, use the [per-tool approval setting](#codex-approval-for-submission-tools) below.
 
@@ -147,7 +147,8 @@ rights. [Official MCP settings](https://learn.chatgpt.com/docs/extend/mcp),
 
 Both per-tool approval fragments were exercised with Codex CLI 0.153.4 in the
 [0.8 staging and production-candidate workflows](#version-08-submission-evidence),
-without per-call approval prompts. Public rollout remains separate and pending.
+without per-call approval prompts. These native sessions retain their candidate-route
+scope; the accepted public rollout and direct SDK checks are separate observations.
 
 ## Gemini CLI
 
@@ -275,7 +276,8 @@ On 2026-09-08, five native-client sessions exercised the production candidate wi
 **zero public traffic**. Each made exactly three MCP calls: its submission tool,
 `get_submission` for the same SHA-256/account, then `get_analysis` for that registered
 ID. There were no repeated submission calls in these sessions. The two innocuous
-public fixtures are labelled A and B. **Public rollout remains pending.**
+public fixtures are labelled A and B. These native results precede the separately
+accepted public rollout below.
 
 | Client | Transport | Submission tool | Selected analysis observed in the candidate session |
 |---|---|---|---|
@@ -311,6 +313,24 @@ and one failure; B had 62 undetected and 14 unsupported. Staging fixtures are
 separate from the production-candidate fixtures. Agy also read its own generated
 MCP schema/result files. The [recovery guide](analysis.md#autonomous-mcp-workflow)
 and historical read-only 0.7 record retain their separate scope.
+
+#### Public rollout and direct checks
+
+The VTAI 0.8 rollout reached 100% and was accepted after its 2026-09-08
+10:30–11:00 UTC observation: 374 requests, 374 latency samples, zero 5xx responses
+and eight bounded check batches. Only the first five-minute interval reached
+100 requests; its p95 exceeded twice the reference. The following five intervals
+had insufficient samples for that comparison, so latency recovery and performance
+equivalence are not established. These counts do not measure organic adoption.
+
+A separate direct public SDK check at 11:07:47–11:07:54 UTC passed ten HTTP checks
+and seven MCP calls: four report lookups, receipt recovery, the owned completed
+analysis and denial of an unowned analysis. It discovered the seven common tools
+but did not submit a file. Seven separate anonymous GETs verified the public
+landing, client connection pages and discovery formats. These checks used no native
+model session and do not turn the candidate-proxy sessions above into public-direct
+native validation. Their pending/completed results and model observations remain
+unchanged.
 
 ### Historical 0.7 native-client coverage
 

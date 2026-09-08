@@ -96,8 +96,9 @@ The [client guide](clients.md) lists exact grants in Agy → Claude Code → Cod
 The [0.8 submission evidence](clients.md#version-08-submission-evidence) records
 five native-client cycles in staging and five against a production candidate,
 preserving pending and completed results. Later API reads confirmed both candidate
-analyses completed. Public rollout remains pending; the historical 0.7 read-only
-sessions retain their separate scope.
+analyses completed. The public rollout and separate direct SDK checks are now
+accepted; the native sessions retain their candidate-route scope, and the
+historical 0.7 read-only sessions retain theirs.
 
 <a id="authorize-one-copy"></a>
 
