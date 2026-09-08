@@ -293,7 +293,8 @@ repository. Each public release requires its own verified CI run and checksums.
 
 ### Bearer authentication validation
 
-**Deployment acceptance for VTAI 0.8.1: pending.**
+**Deployment accepted: VTAI 0.8.1, 2026-09-08.** The published vt-mcp
+package remains 0.8.0.
 
 On 2026-09-08, these native HTTP checks used Bearer through dedicated QA proxies,
 with the same VTAI 0.8.1 image in staging and the production candidate:
@@ -316,6 +317,23 @@ native events. Their causes remain undetermined, and those failures are preserve
 separately from the later sequential successes. These checks were not ordinary
 public-direct connections. They establish neither Agy Bearer support nor OAuth or
 hosted-connector compatibility, and do not extend the earlier submission evidence.
+
+After rollout and removal of the temporary QA route, a separate SDK check against
+the ordinary public endpoint passed 25 HTTP checks and twelve MCP calls using
+`x-apikey` and Bearer separately. It discovered seven tools and called six distinct
+read-only tools with each credential method; it performed no submissions. Seven
+anonymous GETs also verified the landing page, three client connection links, JSON
+and Markdown discovery, and llms content. Response headers confirmed the expected
+backend version (0.8.1) and source.
+These service checks involved no new native model sessions. The test credential
+was revoked and rejected by both authentication methods.
+
+The accepted thirty-minute observation recorded 536 requests, 535 latency samples
+and zero 5xx responses, with eight functional/authentication check batteries. The
+404 aggregate contained one fewer latency sample than requests; the cause
+remains undetermined. The 21-sample baseline cannot support a relative p95
+comparison. This does not establish complete latency coverage, equivalent
+performance or organic adoption.
 
 ### Version 0.8 workflow status
 
