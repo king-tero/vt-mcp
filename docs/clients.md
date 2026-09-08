@@ -8,6 +8,8 @@ VT-MCP provides the submission capability; the client owner configures whether t
 
 Start with [Antigravity CLI (`agy`)](#antigravity-cli-agy), [Claude Code](#claude-code), or [Codex CLI](#codex-cli--remote-http). Other client guides follow those three.
 
+VTAI 0.8.1 adds static Bearer authentication as an alternative to `x-apikey`, using the same VTAI token, rights and quotas. The existing package remains 0.8.0 and its stdio wrapper continues using `x-apikey`. Send only one credential method per connection. The [scoped Bearer checks and deployment status](#bearer-authentication-validation) are separate from the historical `x-apikey` workflow evidence. See [authentication and diagnostics](access.md#choose-one-authentication-header).
+
 ## Antigravity CLI (`agy`)
 
 Use your native Antigravity login, then install the verified vt-mcp wheel and configure its credential-file path:
@@ -54,6 +56,25 @@ claude mcp add --env VTAI_TOKEN_FILE="$HOME/.config/vt-mcp/token" \
 
 For HTTP, merge [claude-http.json](../examples/client-configs/claude-http.json) into a project `.mcp.json` you control and launch Claude Code with `VTAI_MCP_TOKEN` using the [protected-file launch instructions](access.md#remote-client-environment). Its `${VAR}` header expansion was exercised in the production workflow below. Do not pass an expanded credential to `--header`: it may expose the value in process arguments or configuration.
 
+For the **Bearer alternative on VTAI 0.8.1**, use this entry instead of the fragment's `x-apikey` entry. Preserve unrelated servers and permissions, and remove any `x-apikey` header from this server. Load the same protected environment variable before launching:
+
+```json
+{
+  "mcpServers": {
+    "virustotal": {
+      "type": "http",
+      "url": "https://ai.virustotal.com/mcp",
+      "timeout": 180000,
+      "headers": {
+        "Authorization": "Bearer ${VTAI_MCP_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Claude Code documents environment expansion in `headers`; the text above is a reference, not a token value. This does not configure a Claude hosted connector or VTAI OAuth. [Official environment expansion](https://code.claude.com/docs/en/mcp). The [Bearer native checks](#bearer-authentication-validation) used this mechanism through QA proxies.
+
 Inspect `/mcp` or `claude mcp list`. Remove the stdio user entry with `claude mcp remove --scope user virustotal`. Remove the HTTP project entry from `.mcp.json` or use `claude mcp remove --scope project virustotal`, then restart/reload. The scope/transport options terminate the variadic `--env` option in the command above. CLI 2.1.257 help was checked on 2026-09-06 and 2.1.263 help on 2026-09-07. This setup is separate from a claude.ai connector. [Official Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
 
 For a per-run connection, save an adjusted [stdio fragment](../examples/client-configs/stdio.json) in a local file and pass `--strict-mcp-config --mcp-config /absolute/path/vt-mcp.json`. This loads only the specified MCP configuration while preserving your native login. For unattended reports, `--allowedTools` accepts the four exact names `mcp__virustotal__get_file_report`, `mcp__virustotal__get_url_report`, `mcp__virustotal__get_domain_report` and `mcp__virustotal__get_ip_report` as a comma-separated list. The verified run used those grants with `--permission-mode dontAsk`, `--tools ""` and `--print --verbose --output-format stream-json`. Inspect tool results and permission denials as well as the final response. [Claude Code permissions](https://code.claude.com/docs/en/permissions).
@@ -96,7 +117,18 @@ x-apikey = "VTAI_MCP_TOKEN"
 
 This also accepts a nonempty credential file without a trailing newline. A missing file or an empty first line prevents launch. The subshell avoids leaving a new export in your parent shell. An already running app or a desktop launcher may not inherit this environment; close and restart the selected client through the configured launch path. Do not ask the model to read the file or environment.
 
-VTAI accepts only `x-apikey`. Do not replace this with `--bearer-token-env-var`, `Authorization`, a literal token in the configuration, or `codex mcp login`. OAuth is a different authentication flow that this service does not provide. The `env_http_headers` mapping is documented in [official Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp), accepted by the checked CLI 0.153.4 schema and used in the production workflow recorded below.
+The `env_http_headers` mapping is documented in [official Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp), accepted by the checked CLI 0.153.4 schema and used in the production workflow recorded below. It remains supported.
+
+For the **Bearer alternative on VTAI 0.8.1**, use this HTTP entry instead of the first example. Remove the existing `x-apikey` mapping from `env_http_headers` or `http_headers`; do not combine the two authentication methods. Preserve your other settings and any specific tool-approval tables:
+
+```toml
+[mcp_servers.virustotal]
+tool_timeout_sec = 180
+url = "https://ai.virustotal.com/mcp"
+bearer_token_env_var = "VTAI_MCP_TOKEN"
+```
+
+Codex reads the variable named by `bearer_token_env_var` and sends `Authorization: Bearer` with its value. The same protected-file Bash launch above supplies it. No token belongs in the TOML, command arguments or model prompt. `codex mcp login` is an OAuth flow; it does not obtain a VTAI Agent Token. [Official Bearer setting](https://learn.chatgpt.com/docs/extend/mcp), [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference). The [Bearer native checks](#bearer-authentication-validation) used this mechanism through QA proxies.
 
 Restart and inspect `/mcp`, then [check the tools](#try-the-tools). Remove the connection with `codex mcp remove virustotal` and restart. Reuse the same active VTAI credential if you reconnect.
 
@@ -213,7 +245,7 @@ These are application integrations, not claims that Z.ai/DeepSeek chat websites 
 
 Current OpenAI documentation says ChatGPT Desktop's local Codex host can share configuration with CLI/IDE; a CLI test does not prove Desktop behavior. ChatGPT web does not load local Codex configuration. Its MCP testing guide requires an account/workspace permitting Developer mode, a reachable endpoint and the appropriate authentication flow. The retrieved guide does not establish a subscription tier that guarantees that permission. [OpenAI MCP surfaces](https://learn.chatgpt.com/docs/extend/mcp), [connection testing](https://developers.openai.com/plugins/deploy/connect-chatgpt).
 
-OpenAI documents OAuth 2.1 for authenticated hosted MCP. VTAI's static `x-apikey` credential does not implement it. ChatGPT web acceptance remains pending maintained OAuth integration and an actual account test. Do not put the VTAI credential in an OAuth field or disable VTAI access controls. [OpenAI authentication requirements](https://developers.openai.com/plugins/build/auth).
+OpenAI documents OAuth 2.1 for authenticated hosted MCP. VTAI's static token headers (`x-apikey` or Bearer) do not implement it. ChatGPT web acceptance remains pending maintained OAuth integration and an actual account test. Do not put the VTAI credential in an OAuth field or disable VTAI access controls. [OpenAI authentication requirements](https://developers.openai.com/plugins/build/auth).
 
 Claude remote connectors are separate from Claude Code and local Claude Desktop MCP. Documented remote plans include Free, Pro, Max, Team and Enterprise; Free has one custom connector, and Team/Enterprise require an Owner to add one. Requests originate from Anthropic infrastructure even when using Desktop. Account permissions and connectivity still need testing. [Claude remote connector requirements](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
@@ -241,8 +273,9 @@ To read a selected analysis, supply the exact `analysis_id` returned by an autho
 | Observation | Action |
 |---|---|
 | `/mcp` or `/connect/mcp` is unavailable | Check deployment availability and the exact service URL/prefix; do not treat this as an unknown indicator |
-| 401 | Check that the configured environment supplies the VTAI header without displaying its value |
-| 403 | The credential was not accepted; check expiry/revocation and reuse valid access instead of registering automatically |
+| 400 / Bearer `invalid_request` | Correct malformed/repeated Bearer authentication or remove the extra `x-apikey` mapping; use one credential method |
+| 401 | A supported credential is missing or the Bearer token was rejected; check environment, expiry and revocation without displaying the value |
+| 403 | Legacy `x-apikey` was rejected or an operation was denied after authentication; inspect the structured error and reuse valid access instead of registering automatically |
 | 429 | Wait for the supplied retry delay; REST and MCP share the agent's query quota |
 | Tool error or timeout | Read the structured error without exposing credentials; a service failure is not a safety verdict |
 
@@ -252,11 +285,37 @@ Use the connection page to revoke the credential when required. Only HTTP 204 co
 
 ## Validation levels
 
-Historical evidence reviewed through 2026-09-07 (UTC). Configuration parsing, MCP discovery, an actual tool call and a model-assisted workflow are separate observations. The generic Python SDK test is not evidence of a Claude or Gemini model workflow.
+Evidence reviewed through 2026-09-08 (UTC). Configuration parsing, MCP discovery, an actual tool call and a model-assisted workflow are separate observations. The generic Python SDK test is not evidence of a Claude or Gemini model workflow.
 
 Client checks identify the artifact and date tested. Checks for earlier
 versions describe private development, not installation from this public
 repository. Each public release requires its own verified CI run and checksums.
+
+### Bearer authentication validation
+
+**Deployment acceptance for VTAI 0.8.1: pending.**
+
+On 2026-09-08, these native HTTP checks used Bearer through dedicated QA proxies,
+with the same VTAI 0.8.1 image in staging and the production candidate:
+
+| Client | Staging | Production candidate |
+|---|---|---|
+| Claude Code 2.1.263 | One `get_domain_report(example.com)` call and result, `found` | One call and result, `found` |
+| Codex CLI 0.153.4 | One `get_domain_report(example.com)` call and result, `found` | One call and result, `found` |
+
+Each tool result included `VirusTotal via VTAI`, its analysis/retrieval dates,
+the matching report link and coverage of 89 engines. These are four observed
+report calls, not validation of all tools with Bearer or a safety verdict. A
+separate SDK session discovered seven tools before each check. Claude's native
+initialization also listed seven; Codex's native discovery list was not exposed
+in its events. Native HTTP protocol versions and internal retries were not captured.
+
+Two earlier production-candidate attempts failed: Claude stopped before completed
+discovery and native launch; Codex exited after SDK discovery without structured
+native events. Their causes remain undetermined, and those failures are preserved
+separately from the later sequential successes. These checks were not ordinary
+public-direct connections. They establish neither Agy Bearer support nor OAuth or
+hosted-connector compatibility, and do not extend the earlier submission evidence.
 
 ### Version 0.8 workflow status
 

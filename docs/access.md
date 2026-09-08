@@ -72,11 +72,21 @@ vt-mcp reads the file at startup and uses `x-apikey` for its VTAI requests. Rest
 
 ## Remote client environment
 
-Remote MCP uses `https://ai.virustotal.com/mcp`, not the REST URL ending `/api/v3`. VTAI requires **`x-apikey`**. It does not accept `Authorization: Bearer` as a replacement, and the current connection does not implement OAuth.
+Remote MCP uses `https://ai.virustotal.com/mcp`, not the REST URL ending `/api/v3`. Existing clients can keep using **`x-apikey`**. VTAI 0.8.1 additionally accepts the same VTAI credential in **`Authorization: Bearer`** on protected REST routes and MCP. This backend option does not require a vt-mcp 0.8.0 package upgrade.
 
 Use the host's supported environment-header reference from the [configuration fragments](../examples/client-configs/README.md). `VTAI_MCP_TOKEN` is an arbitrary host-side variable name, chosen to avoid conflict with a stdio server's `VTAI_TOKEN_FILE`.
 
 For Antigravity CLI (`agy`) 1.1.27, use the [stdio token-file setup](clients.md#antigravity-cli-agy); tested HTTP header variables were sent literally. Claude Code and Codex support the remote configurations described here.
+
+### Choose one authentication header
+
+Configure **one** credential method per connection: `x-apikey` or `Authorization: Bearer`. Both identify the same VTAI agent and share its rights, quotas and revocation. Sending both is rejected, even if their values match; an invalid Bearer does not fall back to `x-apikey`. Tokens in URLs, query parameters or request bodies do not authenticate a request.
+
+For the Bearer alternative, use the host's protected environment reference: [Claude Code](clients.md#claude-code) expands `Bearer ${VTAI_MCP_TOKEN}` in its Authorization header, and [Codex](clients.md#codex-cli--remote-http) supports `bearer_token_env_var = "VTAI_MCP_TOKEN"`. Remove any `x-apikey` mapping from that server entry when selecting Bearer. The examples contain a variable name, never a credential value. See the [scoped native Bearer checks and deployment status](clients.md#bearer-authentication-validation); earlier HTTP workflow evidence used `x-apikey`.
+
+This is a static VTAI Agent Token, not a VirusTotal API key, Google access token or model-provider login. VTAI does not implement OAuth login, refresh or OAuth discovery. A `WWW-Authenticate: Bearer` challenge does not establish an OAuth authorization server or hosted-connector compatibility. Do not run `codex mcp login` to obtain this token; reuse or explicitly register VTAI access as described above.
+
+The Bearer scheme is case insensitive and the token is case sensitive. The configured header must use spaces between the scheme and token, without quotes, surrounding whitespace, tabs or comma-separated credentials. The examples below load the token for either supported header mapping.
 
 In a human-controlled Bash terminal, load the file without printing its value, then launch the client:
 
@@ -102,14 +112,17 @@ Use `exec codex` instead for Codex, with its matching header configuration. A no
 
 | Observation | Meaning / action |
 |---|---|
-| 401 | `x-apikey` was absent. Check the header mapping and host environment source. |
-| 403 / `access_denied` | The credential was not accepted; it may be revoked or expired. |
+| 400 / Bearer `invalid_request` | Malformed or repeated Bearer authentication, or both credential methods sent together. Keep exactly one valid header mapping. |
+| 401 | No supported credential, or an invalid, unknown, expired or revoked Bearer token. Check the mapping and environment source without displaying the value. |
+| 403 / `access_denied` | Legacy `x-apikey` was rejected, or the operation was denied after authentication. Check the structured error and current access. |
 | 429 / `rate_limited` | Wait for a supplied retry delay; repeated retries consume resources. |
 | Tool result `not_found` | No report was found; this is not a safety verdict. |
 | HTTP 404 for `/mcp` or `/connect/mcp` | Check endpoint, prefix and deployment flags; this is not an unknown indicator result. |
 | Timeout / service error | A failed lookup is not a clean report. Check service status; do not silently submit a sample. |
 
 REST and MCP share VTAI admission and quotas. Unknown reports and upstream failures still consume an admitted query. The stdio wrapper defaults to a 15-second total request deadline; the backend lookup has its own 35-second limit. A client timeout can happen first, and an already admitted request may complete later. Show only sanitized errors to the model; never paste raw auth headers or debug logs into chat.
+
+VTAI 0.8.1 authentication failures use `Cache-Control: no-store`. Missing credentials receive a plain `Bearer realm="VTAI"` challenge; rejected Bearer tokens add `error="invalid_token"`, and malformed Bearer requests add `error="invalid_request"`. Legacy `x-apikey` rejections retain 403 without a challenge. Access-storage unavailability remains 503. Permission, quota and tool errors after authentication keep their existing contracts.
 
 ## Disconnect and reconnect
 
@@ -119,8 +132,10 @@ Do not remove a credential file shared by other clients unless you intend to rem
 
 ## Revoke access
 
-Use the revocation form at [the VTAI connection page](https://ai.virustotal.com/connect/mcp) when its deployment enables revocation. Enter the credential in that human-facing form and confirm the action. Its API is `DELETE /api/v3/agents/me/token`, authenticated with `x-apikey`; this is an advanced setup operation, not an MCP tool.
+Use the revocation form at [the VTAI connection page](https://ai.virustotal.com/connect/mcp) when its deployment enables revocation. Enter the credential in that human-facing form and confirm the action. Its API is `DELETE /api/v3/agents/me/token`, authenticated with `x-apikey` or, on VTAI 0.8.1, the alternative Bearer header; this is an advanced setup operation, not an MCP tool.
 
 A confirmed revocation returns 204. A timeout or service error does not confirm success; retain protected access to the credential so you can diagnose or retry. A 401/403 means it was not accepted, not proof that this particular action revoked it.
 
 VTAI currently has one credential per agent. Revocation disables that agent across clients, REST and MCP; records remain, and a lookup admitted before revocation may finish. Remove the connection from every affected client afterward. To obtain access after revocation, explicitly register a new agent. This is not rotation of the old agent's credential.
+
+A subsequent request using the revoked token receives 401 with Bearer or 403 with legacy `x-apikey`; the two headers do not create separate credentials.
