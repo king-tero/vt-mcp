@@ -1,17 +1,27 @@
 # Find and connect to VirusTotal MCP
 
 The public source and installation releases remain available at
-[king-tero/vt-mcp](https://github.com/king-tero/vt-mcp). A corporate Registry entry
-is being prepared under `io.github.VirusTotal/virustotal-mcp`; the endpoint and
-existing client configurations continue to work during that transition.
+[king-tero/vt-mcp](https://github.com/king-tero/vt-mcp). The active Registry entry
+is now `io.github.VirusTotal/virustotal-mcp`. Endpoint-based configurations keep
+the same URL and credential settings.
 Start with the setup for [Antigravity CLI (`agy`)](clients.md#antigravity-cli-agy),
 [Claude Code](clients.md#claude-code), or [Codex](clients.md#codex-cli--remote-http).
 
 ## MCP Registry
 
-[`server.json`](../server.json) describes `io.github.king-tero/vt-mcp`: the existing
-Streamable HTTP endpoint at `https://ai.virustotal.com/mcp`. It includes the source
-repository ID and a link to [free VTAI registration](https://ai.virustotal.com/connect/mcp).
+The active entry is
+[`io.github.VirusTotal/virustotal-mcp` version 0.8.2](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.VirusTotal%2Fvirustotal-mcp/versions/0.8.2),
+published on 9 September 2026. It describes the existing Streamable HTTP endpoint
+at `https://ai.virustotal.com/mcp` and links to
+[free VTAI registration](https://ai.virustotal.com/connect/mcp). The corporate
+source remains private; this remote-only entry does not advertise a private
+repository URL or require a PyPI package.
+
+The previous [`io.github.king-tero/vt-mcp` 0.8.0 entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.king-tero%2Fvt-mcp/versions/0.8.0?include_deleted=true)
+is retired with a message pointing to the corporate name. Its original manifest
+is retained in [`server.json`](../server.json) for recovery, and remains readable
+in the Registry with `include_deleted=true`. Select the corporate name when
+connecting through a Registry catalogue.
 
 The manifest requests one secret VTAI token and constructs `Authorization: Bearer`
 for the client. Use the host's protected credential settings; no token belongs in
@@ -24,10 +34,11 @@ The eighth tool, `submit_local_file`, requires the local stdio package. Registry
 discovery does not establish support in every client, approval by a model provider,
 or a connection to hosted ChatGPT/Claude. Consult the [client evidence](clients.md).
 
-The registry manifest uses MCP server version **0.8.0**, matching the tool interface
-and published package. Backend VTAI 0.8.1 supplies the Bearer alternative. A remote
-entry needs no PyPI package; the verified [GitHub release](https://github.com/king-tero/vt-mcp/releases/tag/v0.8.0)
-remains the local installation channel.
+The corporate Registry version **0.8.2** identifies the licensing and packaging
+revision that preserves the tool interface introduced in 0.8.0. Backend VTAI
+0.8.1 supplies the Bearer alternative. The verified
+[MIT v0.8.0 GitHub release](https://github.com/king-tero/vt-mcp/releases/tag/v0.8.0)
+remains the public local-installation channel; its bytes and license are unchanged.
 
 ### Maintaining the entry
 
@@ -50,7 +61,7 @@ entries retain their metadata; this operation does not delete GitHub source,
 releases or the hosted MCP service. The workflow removes its temporary local
 credential when the operation finishes.
 
-Published versions are immutable. Check the [registry API](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.king-tero%2Fvt-mcp/versions/latest)
+Published versions are immutable. Check the [retained entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.king-tero%2Fvt-mcp/versions/0.8.0?include_deleted=true)
 before retrying a failed run: publication may have succeeded before a later step
 failed. Update metadata with a new version; never overwrite a published release
 or relabel an existing package. Package publication and backend deployment remain
