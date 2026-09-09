@@ -17,6 +17,11 @@ SPEC.loader.exec_module(registry)
 CORPORATE, PERSONAL = registry.IDENTITIES
 SHA = "a" * 40
 MARKER = "SYNTHETIC_SECRET_MUST_NOT_ESCAPE"
+# Independently fixed from each repository's observed GitHub sub_claim_prefix.
+SUBJECTS = {
+    CORPORATE: "repo:VirusTotal@7701252/virustotal-mcp@1361592455:ref:refs/heads/main",
+    PERSONAL: "repo:king-tero@4201239/vt-mcp@1359828317:ref:refs/heads/main",
+}
 
 
 def manifest(repository):
@@ -47,7 +52,7 @@ def token(repository, **changes):
     claims = {
         "iss": "mcp-registry",
         "auth_method": "github-oidc",
-        "auth_method_sub": f"repo:{repository}:ref:refs/heads/main",
+        "auth_method_sub": SUBJECTS[repository],
         "permissions": [
             {
                 "action": "publish",
@@ -369,21 +374,57 @@ def test_inventory_drift_fails_closed(harness, monkeypatch, problem):
 
 
 @pytest.mark.parametrize(
-    "claims",
+    "claims,error",
     [
-        {"auth_method_sub": "repo:other/repo:ref:refs/heads/main"},
-        {"auth_method": "github"},
-        {"permissions": [{"action": "edit", "resource": "*"}]},
-        {"iat": True},
-        {"exp": 1},
-        {"nbf": 9999999999},
+        ({"auth_method_sub": "repo:other/repo:ref:refs/heads/main"}, "credential_subject_mismatch"),
+        ({"auth_method": "github"}, "credential_rejected"),
+        ({"permissions": [{"action": "edit", "resource": "*"}]}, "credential_permissions_mismatch"),
+        ({"iat": True}, "credential_time_invalid"),
+        ({"exp": 1}, "credential_time_invalid"),
+        ({"nbf": 9999999999}, "credential_time_invalid"),
     ],
 )
-def test_oidc_claims_must_match_this_job(harness, claims):
+def test_oidc_claims_must_match_this_job(harness, capsys, claims, error):
     harness.claims = claims
     assert registry.main([]) == 1
-    assert harness.result()["error"] == "credential_rejected" and not harness.reads
+    assert harness.result()["error"] == error and not harness.reads
     assert not registry.credential_paths()[0].exists()
+    assert MARKER not in capsys.readouterr().out
+    assert "auth_method_sub" not in json.dumps(harness.result())
+
+
+@pytest.mark.parametrize("repository", [CORPORATE, PERSONAL])
+def test_observed_immutable_subject_succeeds_without_registry_mutation(harness, repository):
+    harness.select(repository)
+    assert registry.main([]) == 0
+    assert harness.result()["identity_verified"] and not harness.mutations()
+    assert not registry.credential_paths()[0].exists()
+
+
+@pytest.mark.parametrize("repository", [CORPORATE, PERSONAL])
+@pytest.mark.parametrize("changed", ["legacy", "owner_id", "repository_id", "owner", "ref"])
+def test_other_or_legacy_subject_rejected_exactly(harness, capsys, repository, changed):
+    harness.select(repository)
+    subject = SUBJECTS[repository]
+    if changed == "legacy":
+        subject = f"repo:{repository}:ref:refs/heads/main"
+    elif changed == "owner_id":
+        subject = subject.replace("@7701252/", "@7701253/").replace("@4201239/", "@4201240/")
+    elif changed == "repository_id":
+        subject = subject.replace("@1361592455:", "@1361592456:").replace(
+            "@1359828317:", "@1359828318:"
+        )
+    elif changed == "owner":
+        subject = subject.replace("VirusTotal@", "other@").replace("king-tero@", "other@")
+    else:
+        subject = subject.replace("refs/heads/main", "refs/heads/other")
+    harness.claims = {"auth_method_sub": subject}
+    assert registry.main([]) == 1
+    result = harness.result()
+    assert result["error"] == "credential_subject_mismatch"
+    assert not result["mutation_attempted"] and result["credential_cleanup"] == "removed"
+    assert not harness.reads and not harness.mutations()
+    assert subject not in capsys.readouterr().out and subject not in json.dumps(result)
 
 
 @pytest.mark.parametrize("problem", ["mode", "registry", "method", "malformed"])

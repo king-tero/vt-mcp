@@ -23,12 +23,14 @@ OFFICIAL = "io.modelcontextprotocol.registry/official"
 IDENTITIES = {
     "VirusTotal/virustotal-mcp": {
         "id": 1361592455,
+        "oidc_subject": "repo:VirusTotal@7701252/virustotal-mcp@1361592455:ref:refs/heads/main",
         "name": "io.github.VirusTotal/virustotal-mcp",
         "version": "0.8.2",
         "manifest_sha256": "294e3daa8f45e8f6b6050ab7cce140489272844c911afe6e3aca60843b0aa0e8",
     },
     "king-tero/vt-mcp": {
         "id": 1359828317,
+        "oidc_subject": "repo:king-tero@4201239/vt-mcp@1359828317:ref:refs/heads/main",
         "name": "io.github.king-tero/vt-mcp",
         "version": "0.8.0",
         "manifest_sha256": "86c09dc2d84b540291e56813f13e6747cc6ae0f138adb9e4d5575d769f0a155d",
@@ -330,15 +332,24 @@ def check_credential(path, current):
         require(
             header["alg"] == "EdDSA"
             and claims["iss"] == "mcp-registry"
-            and claims["auth_method"] == "github-oidc"
-            and claims["auth_method_sub"] == f"repo:{current['repository']}:ref:refs/heads/main"
-            and claims["permissions"]
-            == [{"action": "publish", "resource": current["name"].split("/")[0] + "/*"}]
-            and all(type(claims[k]) is int for k in ("iat", "nbf", "exp"))
+            and claims["auth_method"] == "github-oidc",
+            "credential_rejected",
+        )
+        require(
+            claims.get("auth_method_sub") == current["oidc_subject"],
+            "credential_subject_mismatch",
+        )
+        require(
+            claims.get("permissions")
+            == [{"action": "publish", "resource": current["name"].split("/")[0] + "/*"}],
+            "credential_permissions_mismatch",
+        )
+        require(
+            all(type(claims.get(k)) is int for k in ("iat", "nbf", "exp"))
             and now - 300 <= claims["iat"] <= now + 60
             and claims["nbf"] <= now + 60 < claims["exp"]
             and claims["iat"] < claims["exp"],
-            "credential_rejected",
+            "credential_time_invalid",
         )
     except (KeyError, ValueError, TypeError, AttributeError, OSError):
         raise Rejected("credential_rejected") from None
