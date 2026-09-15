@@ -1,14 +1,28 @@
 # vt-mcp
 
+**Looking for the current VirusTotal MCP?** Start with the
+[installation guide](https://ai.virustotal.com/connect/mcp), the official
+[vt-mcp package on PyPI](https://pypi.org/project/vt-mcp/), or the
+[current MCP Registry entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.VirusTotal%2Fvirustotal-mcp/versions/latest).
+The guide covers Agy, Claude Code, Codex and additional clients, with OAuth or
+a reusable Agent Token. Free access is available within the published quotas;
+no VirusTotal API key is required.
+
+This repository preserves the historical **0.8.0 MIT-licensed release**. The
+current Apache-2.0 distribution is published by VirusTotal on PyPI. Source and
+license information for that distribution are available on its PyPI page and
+in its source archive. The instructions and validation records below describe
+the historical release; they are not the current installation guide.
+
 VirusTotal intelligence for MCP clients, powered by **VTAI**.
 
-Look up file, URL, domain and IP reports, submit authorized files and recover their analyses from your assistant. Connect to VTAI over HTTP without installing vt-mcp or Python, or run the MCP server locally over stdio with an additional local-file tool. Basic use requires a free, revocable **VTAI token**; you do not need your own VirusTotal API key.
+Look up file, URL, domain and IP reports, submit authorized files and recover their analyses from your assistant. Connect to VTAI over HTTP without installing vt-mcp or Python, or run the MCP server locally over stdio with an additional local-file tool. The historical setup below uses a free, revocable **VTAI token**; you do not need your own VirusTotal API key.
 
 Version **0.8.0** adds autonomous MCP submission and receipt recovery over the existing VTAI service: **seven common tools over HTTP or stdio, plus one local-file tool over stdio**. Submission tools have no per-call confirmation or consent argument; configure your host to permit only the operations and files you authorize for standard public sharing. The existing CLI, report queries, opt-in guard and public-fixture release gates remain available. See the [release notes](docs/releases/v0.8.0.md) and [submission-workflow evidence](docs/clients.md#version-08-submission-evidence); five native-client sessions exercised the new cycle in staging and another five against a production candidate with zero public traffic. The public rollout is accepted, with separate direct SDK checks; the native sessions retain their candidate-route scope. The historical 0.7 sessions retain their read-only scope.
 
 ## Connect your client
 
-Find the active [VirusTotal MCP Registry entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.VirusTotal%2Fvirustotal-mcp/versions/0.8.2)
+Find the active [VirusTotal MCP Registry entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.VirusTotal%2Fvirustotal-mcp/versions/latest)
 under `io.github.VirusTotal/virustotal-mcp`. The [discovery guide](docs/discovery.md)
 explains the corporate identity, connection requirements and retained public releases.
 
@@ -21,7 +35,7 @@ explains the corporate identity, connection requirements and retained public rel
 | Remote HTTP | `https://ai.virustotal.com/mcp`, with `x-apikey` or the [VTAI 0.8.1 Bearer alternative](docs/access.md#choose-one-authentication-header) read from the host environment | An MCP client supporting the selected credential mapping; no vt-mcp or Python installation |
 | Local stdio | Start `vt-mcp` with `VTAI_TOKEN_FILE` pointing to protected storage | Python 3.12+ and the verified wheel |
 
-Both routes use VTAI's rights and quotas. VTAI 0.8.1 accepts the same VTAI token through **either `x-apikey` or `Authorization: Bearer`**; send only one. This is static token authentication, not OAuth, and needs no vt-mcp package upgrade. Existing `x-apikey` configurations and the local stdio wrapper keep working. Free access is neither anonymous nor unlimited; model-provider charges are separate.
+Both routes use VTAI's rights and quotas. VTAI accepts the same VTAI token through **either `x-apikey` or `Authorization: Bearer`**; send only one. These static-token methods remain available alongside the current remote OAuth connection described in the [installation guide](https://ai.virustotal.com/connect/mcp). Existing `x-apikey` configurations and the local stdio wrapper keep working. Free access is neither anonymous nor unlimited; model-provider charges are separate.
 
 Claude Code and Codex have each used Bearer for one report query in staging and one against a production candidate, through QA proxies. See the [scope and deployment status](docs/clients.md#bearer-authentication-validation); these were not ordinary public-direct sessions. Earlier accepted HTTP workflows used `x-apikey`.
 
@@ -73,7 +87,7 @@ uv tool install --python 3.12 ./vt_mcp-0.8.0-py3-none-any.whl
 vt-mcp --version
 ```
 
-Require an `OK` for that wheel before installing; checking other files does not verify an absent wheel. The package is not published on PyPI. Use the linked release and verified filename rather than a similarly named package from another publisher.
+Require an `OK` for that historical wheel before installing; checking other files does not verify an absent wheel. For new installations, use the current official [vt-mcp package on PyPI](https://pypi.org/project/vt-mcp/) and [client setup guide](https://ai.virustotal.com/connect/mcp).
 
 Keep `vt-mcp` on the client's PATH or configure its absolute path. After saving the VTAI token as described in the access guide, follow the setup for [Antigravity CLI (`agy`)](docs/clients.md#antigravity-cli-agy), [Claude Code](docs/clients.md#claude-code), or [Codex CLI stdio](docs/clients.md#codex-cli--local-stdio).
 
