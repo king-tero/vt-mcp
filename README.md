@@ -2,6 +2,7 @@
 
 **Looking for the current VirusTotal MCP?** Start with the
 [installation guide](https://ai.virustotal.com/connect/mcp), the official
+[VirusTotal source repository](https://github.com/VirusTotal/virustotal-mcp), the
 [vt-mcp package on PyPI](https://pypi.org/project/vt-mcp/), or the
 [current MCP Registry entry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.VirusTotal%2Fvirustotal-mcp/versions/latest).
 The guide covers Agy, Claude Code, Codex and additional clients, with OAuth or
@@ -9,9 +10,11 @@ a reusable Agent Token. Free access is available within the published quotas;
 no VirusTotal API key is required.
 
 This repository preserves the historical **0.8.0 MIT-licensed release**. The
-current Apache-2.0 distribution is published by VirusTotal on PyPI. Source and
-license information for that distribution are available on its PyPI page and
-in its source archive. The instructions and validation records below describe
+current Apache-2.0 distribution is maintained in
+[VirusTotal/virustotal-mcp](https://github.com/VirusTotal/virustotal-mcp) and
+published by VirusTotal on PyPI. The corporate repository contains the current
+source, client integrations, license and contribution instructions.
+The instructions and validation records below describe
 the historical release; they are not the current installation guide.
 
 VirusTotal intelligence for MCP clients, powered by **VTAI**.
